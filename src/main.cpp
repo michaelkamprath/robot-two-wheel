@@ -1,9 +1,9 @@
 #include <Arduino.h>
-#include "Robot.h"
+#include "Driver.h"
 
 const int STATUS_LED_PIN = 13;
 
-Robot* robot;
+Driver* driver;
 
 void setup() {
     Serial.begin(57600);
@@ -11,11 +11,9 @@ void setup() {
     pinMode(STATUS_LED_PIN, OUTPUT);
     digitalWrite(STATUS_LED_PIN, HIGH);
 
-    robot = new Robot();
-
-    robot->move(2000);
+    driver = new Driver();
 }
 
 void loop() {
-    robot->loop();
+    driver->loop();
 }

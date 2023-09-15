@@ -5,12 +5,15 @@
 
 class Robot {
 private:
+    bool _buttonPressed;
     L298NX2 _motorController;
 
 public:
     Robot();
     virtual ~Robot();
     void loop();
+
+    bool buttonPressed();
 
     void turn(int degrees);
     void move(int millimeters);
