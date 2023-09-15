@@ -2,13 +2,25 @@
 #define __ROBOT_H__
 #include <L298NX2.h>
 
+void leftRotationCounterISR();
+void rightRotationCounterISR();
 
 class Robot {
 private:
     bool _buttonPressed;
     L298NX2 _motorController;
 
+    uint32_t _leftWheelCounter;
+    uint32_t _rightWheelCounter;
+protected:
+    friend void leftRotationCounterISR();
+    friend void rightRotationCounterISR();
+
+    void handleLeftWheelCounterISR();
+    void handleRightWheelCounterISR();
 public:
+    static Robot* instance;
+
     Robot();
     virtual ~Robot();
     void loop();
