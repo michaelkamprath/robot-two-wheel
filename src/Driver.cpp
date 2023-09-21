@@ -16,7 +16,8 @@ Driver::~Driver() {
 void Driver::loop() {
     _robot.loop();
     if (_isDriving) {
-        _robot.move(2000);
+        // _robot.turn(-90);
+        _robot.move(4000);
         _isDriving = false;
         Serial.println("Driver::loop: driving done");
     }
