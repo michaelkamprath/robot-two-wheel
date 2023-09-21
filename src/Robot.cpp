@@ -154,15 +154,15 @@ void Robot::turn(int degrees) {
 
 void Robot::move(int millimeters) {
     char buffer[256];
-    Serial.print("Robot::move(");
+    Serial.print(F("Robot::move("));
     Serial.print(millimeters);
-    Serial.println(")");
+    Serial.println(F(")"));
     _speedModel.setAverageSpeed(120);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
-    Serial.print("Robot::move: original left power = ");
+    Serial.print(F("Robot::move: original left power = "));
     Serial.print(_speedModel.getSpeedA());
-    Serial.print(", original right power = ");
+    Serial.print(F(", original right power = "));
     Serial.println(_speedModel.getSpeedB());
     
     // initialize counters

@@ -1,5 +1,9 @@
 #include "SpeedModel.h"
 
+// the LR Power Ratio table is used to adjust the left/right power ratio based on the
+// requested power level. The table was produced by setting both motors to the same
+// power level and measuring the left/right ratio. The table is used to interpolate
+// between the measured values. 
 #define POWER_RATIO_COUNT 9
 const int lrRatioPowerLevel[POWER_RATIO_COUNT] = {
     60,
@@ -29,8 +33,11 @@ SpeedModel::SpeedModel(
     uint32_t wheelDiscHoles
 )   :   _wheelDiscHoles(wheelDiscHoles),
         _averageSpeed(0.0),
+        _lrRatio(1.0),
+        _adjustment(0.0),
         _speedA(0),
-        _speedB(0)
+        _speedB(0),
+        _pidController()
 {
     this->reset();
 }
@@ -51,11 +58,11 @@ void SpeedModel::setAverageSpeed(uint8_t speed) {
         for (int i = 0; i < POWER_RATIO_COUNT; i++) {
             if (lrRatioPowerLevel[i] > speed) {
                 if (i < POWER_RATIO_COUNT - 1) {
-                    Serial.print("eedModel::setAverageSpeed: Interpolating between ");
+                    Serial.print(F("eedModel::setAverageSpeed: Interpolating between "));
                     Serial.print(lrRatioPowerLevel[i-1]);
-                    Serial.print(" and ");
+                    Serial.print(F(" and "));
                     Serial.print(lrRatioPowerLevel[i]);
-                    Serial.print(" for power level ");
+                    Serial.print(F(" for power level "));
                     Serial.println(speed);
                     // interpolate this value and the next value
                     leftRightRatio = lrRatioValue[i] 
@@ -76,27 +83,35 @@ void SpeedModel::setAverageSpeed(uint8_t speed) {
     _speedA = speed;
     _speedB = speed * leftRightRatio;
     _averageSpeed = (float(_speedA) + float(_speedB))/ 2.0;
+    _lrRatio = leftRightRatio;
 
-    Serial.print("SpeedModel::setAverageSpeed: Setting average speed to ");
+    Serial.print(F("SpeedModel::setAverageSpeed: Setting average speed to "));
     Serial.print(_averageSpeed);
-    Serial.print(" and left/right ratio to ");
+    Serial.print(F(" and left/right ratio to "));
     Serial.print(leftRightRatio);
-    Serial.print(", speed requested = ");
+    Serial.print(F(", speed requested = "));
     Serial.println(speed);
+
+    _pidController.begin();
+    _pidController.setpoint(0.0);
+    _pidController.tune(4, 2, 2);
+    _pidController.limit(-20, 20);
 }
 
 void SpeedModel::reset() {
     _averageSpeed = 0.0;
+    _lrRatio = 1.0;
+    _adjustment = 0.0;
     _speedA = 0;
     _speedB = 0;
 }
 
 uint8_t SpeedModel::getSpeedA() const {
-    return _speedA;
+    return max(min(_speedA + _adjustment, 255),0);
 }
 
 uint8_t SpeedModel::getSpeedB() const {
-    return _speedB;
+    return max(min(_speedB - _adjustment, 255),0);
 }
 
 void SpeedModel::updateSpeedsForStraightPath(
@@ -107,70 +122,16 @@ void SpeedModel::updateSpeedsForStraightPath(
     uint32_t counterA,          // Counter value for motor A since start
     uint32_t counterB           // Counter value for motor B since start
 ) {
-    // the goal of this method is to adjust the left and right speed such that the
-    // robot moves in a straight line. The primary signal used for this is the delta
-    // between the left and right counters. If the delta is positive, then the left
-    // wheel is moving faster than the right wheel, and the robot is turning to the
-    // right. If the delta is negative, then the right wheel is moving faster than
-    // the left wheel, and the robot is turning to the left.
-    //
-    // individual motor speed will be adjust up or down such that the difference between
-    // the left and right delta is minimized, and the average speed between them is mainted
-    // at _averageSpeed.
-    if ( deltaA == deltaB) {
-        // the robot is moving in a straight line, so no adjustment is needed
-        Serial.println("SpeedModel::updateSpeedForCounter: Robot is moving in a straight line");
-        return;
-    }
-    if ( deltaA > deltaB ) {
-        //we want to decrease th left motor speed and increase the right motor speed such 
-        // that the average between them is maintained at _averageSpeed
-        // the amount of change is proportional to the difference between the two deltas
-        // and the average speed
-        float delta = float(deltaA - deltaB) / float(_wheelDiscHoles);
-        float adjustment = delta * _averageSpeed;
-        _speedA -= adjustment;
-        _speedB = 2.0*_averageSpeed - _speedA;
+    int error = int(counterA) - int(counterB);
+    _adjustment = _pidController.compute(error);
 
-        Serial.print("SpeedModel::updateSpeedForCounter: Turning right with deltaA = ");
-    } else if ( deltaA < deltaB ) {
-        //we want to increase th left motor speed and decrease the right motor speed such 
-        // that the average between them is maintained at _averageSpeed
-        // the amount of change is proportional to the difference between the two deltas
-        // and the average speed
-        float delta = float(deltaB - deltaA) / float(_wheelDiscHoles);
-        float adjustment = delta * _averageSpeed;
-        _speedA += adjustment;
-        _speedB = 2.0*_averageSpeed - _speedA;
-       Serial.print("SpeedModel::updateSpeedForCounter: Turning left with deltaA = ");
-    }
-    Serial.print(deltaA);
-    Serial.print(", deltaB = ");
-    Serial.print(deltaB);
-    Serial.print(", _speedA = ");
-    Serial.print(_speedA);
-    Serial.print(", _speedB = ");
-    Serial.println(_speedB);
+    Serial.print(F("SpeedModel::updateSpeedForCounter: error = "));
+    Serial.print(error);
+    Serial.print(F(", adjustment = "));
+    Serial.print(_adjustment);
+    Serial.print(F(", _speedA = "));
+    Serial.print(this->getSpeedA());
+    Serial.print(F(", _speedB = "));
+    Serial.println(this->getSpeedB());
 
-    // now add a turn based on the total wheel count since the start. This will cause the
-    // turn with the goal that the total wheel count will be the same for both wheels
-
-    if (counterA > counterB) {
-        // the left wheel has moved more than the right wheel, so we want to turn right
-        // to decrease the left wheel count and increase the right wheel count
-        _speedA -= counterA - counterB;
-        Serial.print("SpeedModel::updateSpeedForCounter: Detected general left drift with counterA = ");
-    } else if (counterB > counterA) {
-        // the right wheel has moved more than the left wheel, so we want to turn left
-        // to decrease the right wheel count and increase the left wheel count
-        _speedB -= counterB - counterA;
-        Serial.print("SpeedModel::updateSpeedForCounter: Detected general right drift with counterA = ");
-    }
-    Serial.print(counterA);
-    Serial.print(", counterB = ");
-    Serial.print(counterB);
-    Serial.print(", _speedA = ");
-    Serial.print(_speedA);
-    Serial.print(", _speedB = ");
-    Serial.println(_speedB);
 }

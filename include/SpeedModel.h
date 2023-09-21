@@ -1,15 +1,19 @@
 #ifndef __SPEEDMODEL_H__
 #define __SPEEDMODEL_H__
 #include <Arduino.h>
+#include <PIDController.h>
 
 class SpeedModel {
 private:
     uint32_t _wheelDiscHoles;
 
     float _averageSpeed;
-    uint8_t _speedA;
-    uint8_t _speedB;
+    float _lrRatio;
+    float _adjustment;
+    int _speedA;
+    int _speedB;
 
+    PIDController _pidController;
 
 public:
     SpeedModel(

@@ -7,7 +7,7 @@ Driver* driver;
 
 void setup() {
     Serial.begin(57600);
-    Serial.println("Kamprath Robot starting up...");
+    Serial.println(F("Kamprath Robot starting up..."));
     pinMode(STATUS_LED_PIN, OUTPUT);
     digitalWrite(STATUS_LED_PIN, HIGH);
 

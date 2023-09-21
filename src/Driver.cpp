@@ -19,10 +19,10 @@ void Driver::loop() {
         // _robot.turn(-90);
         _robot.move(4000);
         _isDriving = false;
-        Serial.println("Driver::loop: driving done");
+        Serial.println(F("Driver::loop: driving done"));
     }
     else if (_robot.buttonPressed()) {
-        Serial.println("Driver::loop: button pressed");
+        Serial.println(F("Driver::loop: button pressed"));
         _isDriving = true;
     }
 }
