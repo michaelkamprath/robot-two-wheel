@@ -4,7 +4,7 @@
 ## Bill of Materials
 
 | Name | Amazon Link | Notes |
-|+--|+--|+--|
+|:--|:--|:--|
 | YIKESHU 2WD Chassis Kit | https://amzn.to/46byvsH |  |
 | ELEGOO MEGA R3 Board | https://amzn.to/3EFRUWZ | Any Arduino Mega 2560 variant will do |
 | MEGA Sensor Shield V1  | https://amzn.to/45UUbtE | Not strictly necessary, but it does make wiring much easier |
@@ -17,7 +17,7 @@
 Furthermore, You might find the following useful:
 
 | Name | Amazon Link | Notes |
-|+--|+--|+--|
+|:--|:--|:--|
 | Big Button Module | https://amzn.to/46gTDOx | Adding a button or two to the robot will allow interactions with the control software. |
 | Machine Screws, Bolts, Washers, and Nuts Kit | https://amzn.to/3Pi5QLR | You will need some hardware to connect parts to the chassis. |
 | Brass Spacer Standoff Kit | https://amzn.to/3EDg58H | Using standoffs to connect various items to the chassis makes construction easier. |
