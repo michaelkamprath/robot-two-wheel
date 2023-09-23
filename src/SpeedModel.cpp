@@ -1,4 +1,5 @@
 #include "SpeedModel.h"
+#include "DataLogger.h"
 
 // the LR Power Ratio table is used to adjust the left/right power ratio based on the
 // requested power level. The table was produced by setting both motors to the same
@@ -17,7 +18,7 @@ const int lrRatioPowerLevel[POWER_RATIO_COUNT] = {
     255
 };
 
-const float lrRatioValue[POWER_RATIO_COUNT] = {
+const double lrRatioValue[POWER_RATIO_COUNT] = {
     0.7962962963,
     0.8511530398,
     0.8844765343,
@@ -46,8 +47,8 @@ SpeedModel::~SpeedModel() {
 
 }
 
-void SpeedModel::setAverageSpeed(uint8_t speed) {
-    float leftRightRatio = 1.0;
+void SpeedModel::startSpeedControl(uint8_t speed) {
+    double leftRightRatio = 1.0;
     if (speed <= lrRatioPowerLevel[0]) {
         speed = lrRatioPowerLevel[0];
         leftRightRatio = lrRatioValue[0];
@@ -58,12 +59,14 @@ void SpeedModel::setAverageSpeed(uint8_t speed) {
         for (int i = 0; i < POWER_RATIO_COUNT; i++) {
             if (lrRatioPowerLevel[i] > speed) {
                 if (i < POWER_RATIO_COUNT - 1) {
-                    Serial.print(F("eedModel::setAverageSpeed: Interpolating between "));
-                    Serial.print(lrRatioPowerLevel[i-1]);
-                    Serial.print(F(" and "));
-                    Serial.print(lrRatioPowerLevel[i]);
-                    Serial.print(F(" for power level "));
-                    Serial.println(speed);
+                    sprintf(
+                        DataLogger::commonBuffer(),
+                        "SpeedModel::startSpeedControl: Interpolating between %d and %d for power level %d",
+                        lrRatioPowerLevel[i-1],
+                        lrRatioPowerLevel[i],
+                        speed
+                    );
+                    DEBUG_LOG(DataLogger::commonBuffer());
                     // interpolate this value and the next value
                     leftRightRatio = lrRatioValue[i] 
                         + (speed - lrRatioPowerLevel[i]) * (lrRatioValue[i] - lrRatioValue[i-1])
@@ -82,20 +85,22 @@ void SpeedModel::setAverageSpeed(uint8_t speed) {
 
     _speedA = speed;
     _speedB = speed * leftRightRatio;
-    _averageSpeed = (float(_speedA) + float(_speedB))/ 2.0;
+    _averageSpeed = (double(_speedA) + double(_speedB))/ 2.0;
     _lrRatio = leftRightRatio;
 
-    Serial.print(F("SpeedModel::setAverageSpeed: Setting average speed to "));
-    Serial.print(_averageSpeed);
-    Serial.print(F(" and left/right ratio to "));
-    Serial.print(leftRightRatio);
-    Serial.print(F(", speed requested = "));
-    Serial.println(speed);
+    sprintf(
+        DataLogger::commonBuffer(),
+        "SpeedModel::startSpeedControl: Setting average speed to %f and left/right ratio to %f, speed requested = %d",
+        _averageSpeed,
+        leftRightRatio,
+        speed
+    );
+    DEBUG_LOG(DataLogger::commonBuffer());
 
     _pidController.begin();
     _pidController.setpoint(0.0);
     _pidController.tune(4, 2, 2);
-    _pidController.limit(-20, 20);
+    _pidController.limit(-min(30, _averageSpeed), min(30, 255-_averageSpeed));
 }
 
 void SpeedModel::reset() {
@@ -114,9 +119,7 @@ uint8_t SpeedModel::getSpeedB() const {
     return max(min(_speedB - _adjustment, 255),0);
 }
 
-void SpeedModel::updateSpeedsForStraightPath(
-    unsigned long deltaMillis,  // Time since last update
-    unsigned long totalMillis,  // Total time since start
+void SpeedModel::updateSpeedsForEqualRotation(
     uint32_t deltaA,            // Counter delta for left motor A
     uint32_t deltaB,            // Counter delta for left motor B
     uint32_t counterA,          // Counter value for motor A since start
@@ -125,13 +128,15 @@ void SpeedModel::updateSpeedsForStraightPath(
     int error = int(counterA) - int(counterB);
     _adjustment = _pidController.compute(error);
 
-    Serial.print(F("SpeedModel::updateSpeedForCounter: error = "));
-    Serial.print(error);
-    Serial.print(F(", adjustment = "));
-    Serial.print(_adjustment);
-    Serial.print(F(", _speedA = "));
-    Serial.print(this->getSpeedA());
-    Serial.print(F(", _speedB = "));
-    Serial.println(this->getSpeedB());
-
+    sprintf(
+        DataLogger::commonBuffer(),
+        "SpeedModel::updateSpeedsForEqualRotation: deltaA = %lu, deltaB = %lu, counterA = %lu, counterB = %lu, error = %d, adjustment = %f",
+        deltaA,
+        deltaB,
+        counterA,
+        counterB,
+        error,
+        _adjustment
+    );
+    DEBUG_LOG(DataLogger::commonBuffer());
 }

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "Driver.h"
+#include "DataLogger.h"
 
 
 Driver::Driver()
@@ -16,13 +17,14 @@ Driver::~Driver() {
 void Driver::loop() {
     _robot.loop();
     if (_isDriving) {
-        // _robot.turn(-90);
-        _robot.move(4000);
+        // _robot.turn(90);
+        // delay(200);
+        _robot.move(2000);
         _isDriving = false;
-        Serial.println(F("Driver::loop: driving done"));
+        INFO_LOG(F("Driver::loop: driving done"));
     }
     else if (_robot.buttonPressed()) {
-        Serial.println(F("Driver::loop: button pressed"));
+        INFO_LOG(F("Driver::loop: button pressed"));
         _isDriving = true;
     }
 }

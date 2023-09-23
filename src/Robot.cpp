@@ -1,4 +1,6 @@
 #include "Robot.h"
+#include "DataLogger.h"
+
 
 const int LEFT_MOTOR_ENABLE_PIN = 7;
 const int LEFT_MOTOR_FORWARD_PIN = 5;
@@ -15,6 +17,7 @@ const int BUTTON_PIN = 26;
 
 const int DISC_HOLE_COUNT = 20;
 
+const int CONTROLLER_SAMPLE_PERIOD = 100;       // milliseconds
 
 //
 // Interupt Service Routines
@@ -47,11 +50,10 @@ Robot::Robot()
     if (instance == nullptr) {
         instance = this;
     } else {
-        Serial.println("Robot::Robot: instance already exists");
+        ERROR_LOG("Robot::Robot: instance already exists");
     }
 
     _motorController.stop();
-    Serial.println("Robot::Robot");
     pinMode(MOVING_LED_PIN, OUTPUT);
     digitalWrite(MOVING_LED_PIN, LOW);
 
@@ -78,7 +80,7 @@ bool Robot::buttonPressed() {
     // button is active low
     if (digitalRead(BUTTON_PIN) == LOW) {
         if (!_buttonPressed) {
-            Serial.println("Robot::buttonPressed: button pressed");
+            DEBUG_LOG("Robot button pressed");
             buttonPressed = true;
         }
         _buttonPressed = true;
@@ -97,7 +99,6 @@ void Robot::handleRightWheelCounterISR() {
 }
 
 void Robot::turn(int degrees) {
-    char buffer[256];
     // a 180 degree turn would be one full turn of each wheel in opoosite directions.
     // first task would be to calculate what fraction of a full turn each wheel needs to make.
     // convert the angle to equavilent value on range of -180 degrees to 180 degrees
@@ -109,61 +110,98 @@ void Robot::turn(int degrees) {
     // convert the angle to a fraction of a full turn
     float fractionOfFullTurn = fabs(degrees) / 180.0;
     // convert the fraction of a full turn to a fraction of the number of holes in the disc
-    uint32_t target_disc_hole_count = DISC_HOLE_COUNT*fractionOfFullTurn -1;
+    uint32_t target_disc_hole_count = DISC_HOLE_COUNT*fractionOfFullTurn;
     // initialize counters
     _leftWheelCounter = 0;
     _rightWheelCounter = 0;
+    int lastLeftWheelCounter = _leftWheelCounter;
+    int lastRighWheelCounter = _rightWheelCounter;
     // power to 30%
-    _speedModel.setAverageSpeed(102);
+    _speedModel.startSpeedControl(110);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
 
      digitalWrite(MOVING_LED_PIN, HIGH);
     // turn right if degrees is positive, left if degrees is negative
     if (degrees > 0) {
-        sprintf(buffer, "Robot::turn: turning right %d degrees with target disc hole count = %lu", degrees, target_disc_hole_count);
-        Serial.println(buffer);
+        sprintf(DataLogger::commonBuffer(), "Robot::turn: turning right %d degrees with target disc hole count = %lu", degrees, target_disc_hole_count);
+        INFO_LOG(DataLogger::commonBuffer());
         _motorController.forwardA();
         _motorController.backwardB();
     } else {
-        sprintf(buffer, "Robot::turn: turning left %d degrees with target disc hole count = %lu", degrees, target_disc_hole_count);
-        Serial.println(buffer);
+        sprintf(DataLogger::commonBuffer(), "Robot::turn: turning left %d degrees with target disc hole count = %lu", degrees, target_disc_hole_count);
+        INFO_LOG(DataLogger::commonBuffer());
         _motorController.backwardA();
         _motorController.forwardB();
     }
 
+    unsigned long currentMillis = millis();
+    unsigned long lastCheckinMillis = currentMillis;
     while (_leftWheelCounter < target_disc_hole_count && _rightWheelCounter < target_disc_hole_count) {
+        unsigned long deltaMillis = currentMillis - lastCheckinMillis;
+        if (deltaMillis > CONTROLLER_SAMPLE_PERIOD/2) {
+            int leftDelta = _leftWheelCounter - lastLeftWheelCounter;
+            int rightDelta = _rightWheelCounter - lastRighWheelCounter;
+            lastLeftWheelCounter = _leftWheelCounter;
+            lastRighWheelCounter = _rightWheelCounter;
+            _speedModel.updateSpeedsForEqualRotation(
+                leftDelta,
+                rightDelta,
+                _leftWheelCounter,
+                _rightWheelCounter
+            );
+            if ((_speedModel.getSpeedA() != _motorController.getSpeedA()) || (_speedModel.getSpeedB() != _motorController.getSpeedB())) {
+                // must stop motors to change speed
+                _motorController.stop();
+                _motorController.setSpeedA(_speedModel.getSpeedA());
+                _motorController.setSpeedB(_speedModel.getSpeedB());
+                if (degrees > 0) {
+                    _motorController.forwardA();
+                    _motorController.backwardB();
+                } else {
+                    _motorController.backwardA();
+                    _motorController.forwardB();
+                }                   
+            }
+        }
         sprintf(
-            buffer,
-            "Robot::turn: Turning\n   left wheel counter : %lu\n   right wheel counter: %lu",
+            DataLogger::commonBuffer(),
+            "Robot::turn: Turning\n   left wheel counter : %lu\n   right wheel counter: %lu\n   left wheel power: %d\n   right wheel power: %d",
             _leftWheelCounter,
-            _rightWheelCounter
+            _rightWheelCounter,
+            _speedModel.getSpeedA(),
+            _speedModel.getSpeedB()
         );
-        Serial.println(buffer);
+        DEBUG_LOG(DataLogger::commonBuffer());
     }
     _motorController.stop();
     digitalWrite(MOVING_LED_PIN, LOW);
     sprintf(
-        buffer,
+        DataLogger::commonBuffer(),
         "Robot::turn: complete\n   left wheel counter : %lu\n   right wheel counter: %lu",
         _leftWheelCounter,
         _rightWheelCounter
     );
-    Serial.println(buffer);
+    DEBUG_LOG(DataLogger::commonBuffer());
 }   
 
 void Robot::move(int millimeters) {
-    char buffer[256];
-    Serial.print(F("Robot::move("));
-    Serial.print(millimeters);
-    Serial.println(F(")"));
-    _speedModel.setAverageSpeed(120);
+    sprintf(
+        DataLogger::commonBuffer(),
+        "Robot::move: moving %d millimeters",
+        millimeters
+    );
+    INFO_LOG(DataLogger::commonBuffer());
+    _speedModel.startSpeedControl(150);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
-    Serial.print(F("Robot::move: original left power = "));
-    Serial.print(_speedModel.getSpeedA());
-    Serial.print(F(", original right power = "));
-    Serial.println(_speedModel.getSpeedB());
+    sprintf(
+        DataLogger::commonBuffer(),
+        "Robot::move: initial left power = %d, initial right power = %d",
+        _speedModel.getSpeedA(),
+        _speedModel.getSpeedB()
+    );
+    DEBUG_LOG(DataLogger::commonBuffer());
     
     // initialize counters
     _leftWheelCounter = 0;
@@ -179,7 +217,7 @@ void Robot::move(int millimeters) {
     unsigned long lastCheckinMillis = currentMillis;
     while (currentMillis -  startMillis < millimeters) {
         unsigned long deltaMillis = currentMillis - lastCheckinMillis;
-        if (deltaMillis > 100) {
+        if (deltaMillis > CONTROLLER_SAMPLE_PERIOD) {
             int leftDelta = _leftWheelCounter - lastLeftWheelCounter;
             int rightDelta = _rightWheelCounter - lastRighWheelCounter;
             lastCheckinMillis = currentMillis;
@@ -187,9 +225,7 @@ void Robot::move(int millimeters) {
             lastRighWheelCounter = _rightWheelCounter;
 
 
-            _speedModel.updateSpeedsForStraightPath(
-                deltaMillis,
-                currentMillis - startMillis,
+            _speedModel.updateSpeedsForEqualRotation(
                 leftDelta,
                 rightDelta,
                 _leftWheelCounter,
@@ -211,12 +247,12 @@ void Robot::move(int millimeters) {
     int final_speed_left = _speedModel.getSpeedA();
     int final_speed_right = _speedModel.getSpeedB();
     sprintf(
-        buffer,
-        "Robot::move: complete\n   left wheel counter : %lu\n   right wheel counter: %lu\n   left wheel power: %d\n   right wheel power: %d",
+        DataLogger::commonBuffer(),
+        "Robot::move: complete, left wheel counter : %lu, right wheel counter: %lu, left wheel power: %d, right wheel power: %d",
         _leftWheelCounter,
         _rightWheelCounter,
         final_speed_left,
         final_speed_right
     );
-    Serial.println(buffer);
+    DEBUG_LOG(DataLogger::commonBuffer());
 }
