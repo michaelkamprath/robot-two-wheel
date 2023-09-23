@@ -21,6 +21,9 @@ private:
     char _buffer[256];
     char _commonBuffer[256];
 
+    int _logSequenceNumber;
+    char _logFileName[20];
+
 protected:
     void log(LogType, const char* message);
     void log(LogType, const __FlashStringHelper* message);
