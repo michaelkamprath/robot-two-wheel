@@ -2,43 +2,46 @@
 #define __DATALOGGER_H__
 #include <Arduino.h>
 
-
-typedef enum {
-    DEBUG = 0,
-    INFO = 1,
-    WARNING = 2,
-    ERROR = 3
-} LogType;
-
-
 #define DEBUG_LOG(message) DataLogger::getInstance()->debug(message)
 #define INFO_LOG(message) DataLogger::getInstance()->info(message)
 #define WARNING_LOG(message) DataLogger::getInstance()->warning(message)
 #define ERROR_LOG(message) DataLogger::getInstance()->error(message)
 
 class DataLogger {
+public:
+    typedef enum {
+        NONE = -1,
+        DEBUG = 0,
+        INFO = 1,
+        WARNING = 2,
+        ERROR = 3
+    } LogType;
+
 private:
     char _buffer[256];
     char _commonBuffer[256];
 
     int _logSequenceNumber;
     char _logFileName[20];
+    LogType _logLevel;
+
 
 protected:
-    void log(LogType, const char* message);
-    void log(LogType, const __FlashStringHelper* message);
-
     static DataLogger* _instance;
+
 public:
-    static void init()                                  { new DataLogger(); }
+    static void init(LogType log_level = DEBUG)         { new DataLogger(log_level); }
     static DataLogger* getInstance()                    { return _instance; }
 
     static char* commonBuffer()                         { return _instance->_commonBuffer; }
 
-    DataLogger();
+    DataLogger(LogType log_level);
     virtual ~DataLogger();
 
     void loop();
+
+    void log(LogType, const char* message);
+    void log(LogType, const __FlashStringHelper* message);
 
     void debug(const char* message)                     { log(DEBUG, message); }
     void info(const char* message)                      { log(INFO, message); }

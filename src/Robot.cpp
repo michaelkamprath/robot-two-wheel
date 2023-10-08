@@ -1,6 +1,6 @@
 #include "Robot.h"
 #include "DataLogger.h"
-
+#include "DataTable.h"
 
 const int LEFT_MOTOR_ENABLE_PIN = 7;
 const int LEFT_MOTOR_FORWARD_PIN = 5;
@@ -17,8 +17,30 @@ const int BUTTON_PIN = 26;
 
 const int DISC_HOLE_COUNT = 20;
 
-const int CONTROLLER_SAMPLE_PERIOD = 100;       // milliseconds
+const int CONTROLLER_SAMPLE_PERIOD = 75;       // milliseconds
 
+const double WHEEL_CIRCUMFERENCE = 215; // millimeters
+const double WHEEL_BASE = 132.5;          // millimeters
+
+// Turning angle formula (in radians):
+//
+//   angle = WHEEL_CIRCUMFERENCE*((outside_wheel_count - inside_wheel_count)/DISC_HOLE_COUNT)/WHEEL_BASE
+//
+// The only variables are the outside_wheel_count and inside_wheel_count. We can calculate and turning angle
+// factor based off the contstant values.
+//
+//   angle_factor = WHEEL_CIRCUMFERENCE/DISC_HOLE_COUNT/WHEEL_BASE
+//
+// the turning angle is then:
+//
+//   angle = angle_factor*(outside_wheel_count - inside_wheel_count)
+
+const double TURNING_ANGLE_FACTOR = WHEEL_CIRCUMFERENCE/DISC_HOLE_COUNT/WHEEL_BASE;
+
+#define CALC_TURNING_ANGLE(outside_wheel_count, inside_wheel_count) (TURNING_ANGLE_FACTOR*((outside_wheel_count) - (inside_wheel_count)))
+#define CALC_TURNING_RADIUS(outside_wheel_count, inside_wheel_count) (WHEEL_BASE*inside_wheel_count/(outside_wheel_count - inside_wheel_count))
+#define CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle) ((turning_radius+WHEEL_BASE/2)*(1.0 - cos(turning_angle)))
+#define CALC_VERTICAL_DISTANCE(turning_radius, turning_angle, wheel_rotation_ticks) (sin(turning_angle) != 0.0 ? (turning_radius+WHEEL_BASE/2)*sin(turning_angle) : wheel_rotation_ticks*WHEEL_CIRCUMFERENCE/DISC_HOLE_COUNT)
 //
 // Interupt Service Routines
 //
@@ -107,6 +129,9 @@ void Robot::turn(int degrees) {
     } else if (degrees < -180) {
         degrees += 360;
     }
+    sprintf(DataLogger::commonBuffer(), "Robot::turn: turning %d degrees", degrees);
+    INFO_LOG(DataLogger::commonBuffer());
+
     // convert the angle to a fraction of a full turn
     float fractionOfFullTurn = fabs(degrees) / 180.0;
     // convert the fraction of a full turn to a fraction of the number of holes in the disc
@@ -117,7 +142,7 @@ void Robot::turn(int degrees) {
     int lastLeftWheelCounter = _leftWheelCounter;
     int lastRighWheelCounter = _rightWheelCounter;
     // power to 30%
-    _speedModel.startSpeedControl(110);
+    _speedModel.startSpeedControl(150);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
 
@@ -186,12 +211,34 @@ void Robot::turn(int degrees) {
 }   
 
 void Robot::move(int millimeters) {
+    const int NUM_DATA_COLUMNS = 12;
+    String column_headers[] {
+        "timestamp",
+        "left wheel counter",
+        "right wheel counter",
+        "left wheel counter delta",
+        "right wheel counter delta",
+        "left wheel power",
+        "right wheel power",
+        "forward distance", 
+        "turning angle",
+        "turning radius",
+        "current bearing",
+        "target wheel tick count"
+    };
+    DataTable<double> move_data(NUM_DATA_COLUMNS, column_headers, 50);
+    
+    // first calculate wheel rotation count for the distance. Floor down to 
+    // the previous whole number of wheel ticks
+    uint32_t target_wheel_tick_count = (abs(millimeters) / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT + 1;
     sprintf(
         DataLogger::commonBuffer(),
-        "Robot::move: moving %d millimeters",
-        millimeters
+        "Robot::move: moving %d millimeters with target whell tick count = %lu",
+        millimeters,
+        target_wheel_tick_count
     );
     INFO_LOG(DataLogger::commonBuffer());
+
     _speedModel.startSpeedControl(150);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
@@ -207,30 +254,62 @@ void Robot::move(int millimeters) {
     _leftWheelCounter = 0;
     _rightWheelCounter = 0;
 
-    int lastLeftWheelCounter = _leftWheelCounter;
-    int lastRighWheelCounter = _rightWheelCounter;
+    uint32_t lastLeftWheelCounter = _leftWheelCounter;
+    uint32_t lastRighWheelCounter = _rightWheelCounter;
+
+    double forward_distance = 0.0;
+    double horizontal_displacement = 0.0;
+    double turning_angle = 0.0;
+    double turning_radius = 0.0;
+    double cur_bearing = 0.0;
 
     digitalWrite(MOVING_LED_PIN, HIGH);
-    unsigned long startMillis = millis();
     _motorController.forward();
     unsigned long currentMillis = millis();
     unsigned long lastCheckinMillis = currentMillis;
-    while (currentMillis -  startMillis < millimeters) {
+    while ( (_leftWheelCounter < target_wheel_tick_count) && (_rightWheelCounter < target_wheel_tick_count)) {
         unsigned long deltaMillis = currentMillis - lastCheckinMillis;
         if (deltaMillis > CONTROLLER_SAMPLE_PERIOD) {
-            int leftDelta = _leftWheelCounter - lastLeftWheelCounter;
-            int rightDelta = _rightWheelCounter - lastRighWheelCounter;
+            uint32_t curLeftWheelCounter = _leftWheelCounter;
+            uint32_t curRightWheelCounter = _rightWheelCounter;
+            int leftDelta = curLeftWheelCounter - lastLeftWheelCounter;
+            int rightDelta = curRightWheelCounter - lastRighWheelCounter;
             lastCheckinMillis = currentMillis;
-            lastLeftWheelCounter = _leftWheelCounter;
-            lastRighWheelCounter = _rightWheelCounter;
+            lastLeftWheelCounter = curLeftWheelCounter;
+            lastRighWheelCounter = curRightWheelCounter;
 
 
             _speedModel.updateSpeedsForEqualRotation(
                 leftDelta,
                 rightDelta,
-                _leftWheelCounter,
-                _rightWheelCounter
+                curLeftWheelCounter,
+                curRightWheelCounter
             );
+
+            // calculate the horizontal displacement
+            if (rightDelta > leftDelta) {
+                // turning left
+                turning_angle = CALC_TURNING_ANGLE(rightDelta, leftDelta);
+                cur_bearing += turning_angle;
+                turning_radius = CALC_TURNING_RADIUS(rightDelta, leftDelta);
+                forward_distance += CALC_VERTICAL_DISTANCE(turning_radius, turning_angle, rightDelta);
+                horizontal_displacement -= CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle);
+            }
+            else if (leftDelta > rightDelta) {
+                // turning right
+                turning_angle = CALC_TURNING_ANGLE(leftDelta, rightDelta);
+                cur_bearing -= turning_angle;
+                turning_radius = CALC_TURNING_RADIUS(leftDelta, rightDelta);
+                forward_distance += CALC_VERTICAL_DISTANCE(turning_radius, turning_angle, leftDelta);
+                horizontal_displacement += CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle);
+            }
+            else {
+                // going straight
+                turning_angle = 0.0;
+                turning_radius = 0.0;
+                forward_distance += WHEEL_CIRCUMFERENCE*leftDelta/DISC_HOLE_COUNT;
+            }
+
 
             if ((_speedModel.getSpeedA() != _motorController.getSpeedA()) || (_speedModel.getSpeedB() != _motorController.getSpeedB())) {
                 // must stop motors to change speed
@@ -239,11 +318,57 @@ void Robot::move(int millimeters) {
                 _motorController.setSpeedB(_speedModel.getSpeedB());
                 _motorController.forward();
             }
+            // update target wheel tick count
+            double remaining_distance = fabs(millimeters) - forward_distance;
+            if (remaining_distance > 0) {
+                target_wheel_tick_count =
+                        (curLeftWheelCounter + curRightWheelCounter)/2 
+                        + (remaining_distance / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT;
+            } else {
+                target_wheel_tick_count = (curLeftWheelCounter + curRightWheelCounter)/2;
+            }
+
+            move_data.append_row(
+                NUM_DATA_COLUMNS,
+                double(currentMillis),
+                double(curLeftWheelCounter),
+                double(curRightWheelCounter),
+                double(leftDelta),
+                double(rightDelta),
+                double(_speedModel.getSpeedA()),
+                double(_speedModel.getSpeedB()),
+                forward_distance,
+                turning_angle,
+                turning_radius,
+                cur_bearing,
+                double(target_wheel_tick_count)
+            );
         }
         currentMillis = millis();
     }
     _motorController.stop();
+    // ensure that the robot has stopped moving by reversing for a short time
+    _motorController.backward();
+    delay(50);
+    _motorController.stop();
     digitalWrite(MOVING_LED_PIN, LOW);
+
+    move_data.append_row(
+        NUM_DATA_COLUMNS,
+        double(currentMillis),
+        double(_leftWheelCounter),
+        double(_rightWheelCounter),
+        double(0),
+        double(0),
+        double(_speedModel.getSpeedA()),
+        double(_speedModel.getSpeedB()),
+        ((_leftWheelCounter + _rightWheelCounter)/2.0)*WHEEL_CIRCUMFERENCE/DISC_HOLE_COUNT,
+        double(0),
+        double(0),
+        cur_bearing,
+        double(target_wheel_tick_count)
+    );
+
     int final_speed_left = _speedModel.getSpeedA();
     int final_speed_right = _speedModel.getSpeedB();
     sprintf(
@@ -255,4 +380,33 @@ void Robot::move(int millimeters) {
         final_speed_right
     );
     DEBUG_LOG(DataLogger::commonBuffer());
+
+    DEBUG_LOG(F("Robot::move: the movement data:"));
+    DataLogger::getInstance()->log(
+        DataLogger::NONE, 
+        move_data.get_csv_string(
+            [](double value, int col_num) -> String {
+                switch(col_num) {
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 11:
+                        return String(value, 0);
+                        break;
+                    default:
+                    case 7:
+                    case 8:
+                    case 9:
+                        return String(value, 2);
+                        break;
+                    case 10:
+                        return String(value, 7);
+                        break;
+                }
+            }
+        ).c_str());
 }

@@ -12,7 +12,15 @@ const int SD_DI_PIN = 51;
 
 DataLogger* DataLogger::_instance = nullptr;
 
-DataLogger::DataLogger() {
+const String EMPTY_STRING = "";
+const String DEBUG_PREFIX = "DEBUG: ";
+const String INFO_PREFIX = "INFO: ";
+const String WARNING_PREFIX = "WARNING: ";
+const String ERROR_PREFIX = "ERROR: ";
+
+DataLogger::DataLogger(LogType log_level) 
+    :   _logLevel(log_level)
+{
     if (_instance == nullptr) {
         _instance = this;
     } else {
@@ -100,26 +108,35 @@ void DataLogger::loop() {
 }
 
 void DataLogger::log(LogType logType, const char* message) {
-    char buffer[256];
+    if (logType < _logLevel && logType != NONE) {
+        return;
+    }
+    const String* prefix;
     switch (logType) {
+        default:
+        case NONE:
+            prefix = &EMPTY_STRING;
+            break;
         case DEBUG:
-            sprintf(buffer, "DEBUG: %s", message);
+            prefix = &DEBUG_PREFIX;
             break;
         case INFO:
-            sprintf(buffer, "INFO: %s", message);
+            prefix = &INFO_PREFIX;
             break;
         case WARNING:
-            sprintf(buffer, "WARNING: %s", message);
+            prefix = &WARNING_PREFIX;
             break;
         case ERROR:
-            sprintf(buffer, "ERROR: %s", message);
+            prefix = &ERROR_PREFIX;
             break;
     }
-    Serial.println(buffer);
+    Serial.print(*prefix);
+    Serial.println(message);
     if (_logFileName[0] != '\0') {
         File logFile = SD.open(_logFileName, FILE_WRITE);
         if (logFile) {
-            logFile.println(buffer);
+            logFile.print(*prefix);
+            logFile.println(message);
             logFile.close();
         }
     } 
