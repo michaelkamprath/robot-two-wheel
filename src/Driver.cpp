@@ -17,9 +17,9 @@ Driver::~Driver() {
 void Driver::loop() {
     _robot.loop();
     if (_isDriving) {
-        _robot.turn(45);
-        delay(200);
-        _robot.move(1000);
+        // _robot.turn(45);
+        // delay(200);
+        _robot.move(850);
         _isDriving = false;
         INFO_LOG(F("Driver::loop: driving done"));
     }

@@ -17,9 +17,9 @@ const int BUTTON_PIN = 26;
 
 const int DISC_HOLE_COUNT = 20;
 
-const int CONTROLLER_SAMPLE_PERIOD = 75;       // milliseconds
+const int CONTROLLER_SAMPLE_PERIOD = 80;       // milliseconds
 
-const double WHEEL_CIRCUMFERENCE = 215; // millimeters
+const double WHEEL_CIRCUMFERENCE = 214; // millimeters
 const double WHEEL_BASE = 132.5;          // millimeters
 
 // Turning angle formula (in radians):
@@ -211,7 +211,7 @@ void Robot::turn(int degrees) {
 }   
 
 void Robot::move(int millimeters) {
-    const int NUM_DATA_COLUMNS = 12;
+    const int NUM_DATA_COLUMNS = 14;
     String column_headers[] {
         "timestamp",
         "left wheel counter",
@@ -224,16 +224,17 @@ void Robot::move(int millimeters) {
         "turning angle",
         "turning radius",
         "current bearing",
-        "target wheel tick count"
+        "target wheel tick count",
+        "cumulative stearing error",
+        "current stearing adjustment"
     };
     DataTable<double> move_data(NUM_DATA_COLUMNS, column_headers, 50);
     
-    // first calculate wheel rotation count for the distance. Floor down to 
-    // the previous whole number of wheel ticks
+    // first calculate wheel rotation count for the distance.
     uint32_t target_wheel_tick_count = (abs(millimeters) / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT + 1;
     sprintf(
         DataLogger::commonBuffer(),
-        "Robot::move: moving %d millimeters with target whell tick count = %lu",
+        "Robot::move: moving %d millimeters with target wheel tick count = %lu",
         millimeters,
         target_wheel_tick_count
     );
@@ -267,7 +268,7 @@ void Robot::move(int millimeters) {
     _motorController.forward();
     unsigned long currentMillis = millis();
     unsigned long lastCheckinMillis = currentMillis;
-    while ( (_leftWheelCounter < target_wheel_tick_count) && (_rightWheelCounter < target_wheel_tick_count)) {
+    while ( (_leftWheelCounter < target_wheel_tick_count) || (_rightWheelCounter < target_wheel_tick_count)) {
         unsigned long deltaMillis = currentMillis - lastCheckinMillis;
         if (deltaMillis > CONTROLLER_SAMPLE_PERIOD) {
             uint32_t curLeftWheelCounter = _leftWheelCounter;
@@ -297,11 +298,11 @@ void Robot::move(int millimeters) {
             }
             else if (leftDelta > rightDelta) {
                 // turning right
-                turning_angle = CALC_TURNING_ANGLE(leftDelta, rightDelta);
-                cur_bearing -= turning_angle;
+                turning_angle = -CALC_TURNING_ANGLE(leftDelta, rightDelta);
+                cur_bearing += turning_angle;
                 turning_radius = CALC_TURNING_RADIUS(leftDelta, rightDelta);
-                forward_distance += CALC_VERTICAL_DISTANCE(turning_radius, turning_angle, leftDelta);
-                horizontal_displacement += CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle);
+                forward_distance += CALC_VERTICAL_DISTANCE(turning_radius, -turning_angle, leftDelta);
+                horizontal_displacement += -CALC_HORIZONTAL_DISTANCE(turning_radius, -turning_angle);
             }
             else {
                 // going straight
@@ -323,7 +324,8 @@ void Robot::move(int millimeters) {
             if (remaining_distance > 0) {
                 target_wheel_tick_count =
                         (curLeftWheelCounter + curRightWheelCounter)/2 
-                        + (remaining_distance / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT;
+                        + (remaining_distance / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT
+                        + 1;
             } else {
                 target_wheel_tick_count = (curLeftWheelCounter + curRightWheelCounter)/2;
             }
@@ -341,7 +343,9 @@ void Robot::move(int millimeters) {
                 turning_angle,
                 turning_radius,
                 cur_bearing,
-                double(target_wheel_tick_count)
+                double(target_wheel_tick_count),
+                _speedModel.getCumulativeError(),
+                _speedModel.getCurrentAdjustment()
             );
         }
         currentMillis = millis();
@@ -349,7 +353,7 @@ void Robot::move(int millimeters) {
     _motorController.stop();
     // ensure that the robot has stopped moving by reversing for a short time
     _motorController.backward();
-    delay(50);
+    delay(5);
     _motorController.stop();
     digitalWrite(MOVING_LED_PIN, LOW);
 
@@ -366,7 +370,9 @@ void Robot::move(int millimeters) {
         double(0),
         double(0),
         cur_bearing,
-        double(target_wheel_tick_count)
+        double(target_wheel_tick_count),
+        _speedModel.getCumulativeError(),
+        _speedModel.getCurrentAdjustment()
     );
 
     int final_speed_left = _speedModel.getSpeedA();
@@ -398,13 +404,25 @@ void Robot::move(int millimeters) {
                         return String(value, 0);
                         break;
                     default:
-                    case 7:
-                    case 8:
-                    case 9:
                         return String(value, 2);
                         break;
+                    case 8:
                     case 10:
-                        return String(value, 7);
+                    case 13:
+                        if (value == 0.0) {
+                            return String("0");
+                        } else {
+                            return String(value, 8);
+                        }
+                        break;
+                    case 7:
+                    case 9:
+                    case 12:
+                        if (value == 0.0) {
+                            return String("0");
+                        } else {
+                            return String(value, 2);
+                        }
                         break;
                 }
             }

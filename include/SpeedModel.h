@@ -34,6 +34,9 @@ public:
     uint8_t getSpeedA() const;      // left wheel
     uint8_t getSpeedB() const;      // right wheel
 
+    double getCurrentAdjustment() const     { return _adjustment; }
+    double getCumulativeError() const       { return _pidController.getErrorSum(); } 
+
 };
 
 #endif // __SPEEDMODEL_H__
