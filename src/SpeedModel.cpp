@@ -68,9 +68,9 @@ void SpeedModel::setAverageSpeed(uint8_t speed) {
         for (int i = 0; i < POWER_RATIO_COUNT; i++) {
             if (lrRatioPowerLevel[i] > speed) {
                 if (i < POWER_RATIO_COUNT - 1) {
-                    sprintf(
+                    sprintf_P(
                         DataLogger::commonBuffer(),
-                        "SpeedModel::setAverageSpeed: Interpolating between %d and %d for power level %hu",
+                        PSTR("SpeedModel::setAverageSpeed: Interpolating between %d and %d for power level %hu"),
                         lrRatioPowerLevel[i-1],
                         lrRatioPowerLevel[i],
                         speed
@@ -97,9 +97,9 @@ void SpeedModel::setAverageSpeed(uint8_t speed) {
     _averageSpeed = (double(_speedA) + double(_speedB))/ 2.0;
     _lrRatio = leftRightRatio;
 
-    sprintf(
+    sprintf_P(
         DataLogger::commonBuffer(),
-        "SpeedModel::setAverageSpeed: Setting average speed to %s and left/right ratio to %s, speed requested = %hu",
+        PSTR("SpeedModel::setAverageSpeed: Setting average speed to %s and left/right ratio to %s, speed requested = %hu"),
         String(_averageSpeed,5).c_str(),
         String(leftRightRatio,5).c_str(),
         speed

@@ -65,7 +65,7 @@ DataLogger::DataLogger(LogType log_level)
         String sequenceNumberString = sequenceNumberFile.readStringUntil('\n');
         sequenceNumberFile.close();
         _logSequenceNumber = sequenceNumberString.toInt();
-        sprintf(_buffer, "DataLogger: initial sequence number is %d, incrementing it", _logSequenceNumber);
+        sprintf_P(_buffer, PSTR("DataLogger: initial sequence number is %d, incrementing it"), _logSequenceNumber);
         INFO_LOG(_buffer);
         _logSequenceNumber++;
         // roll over if we hit 1000
@@ -85,7 +85,7 @@ DataLogger::DataLogger(LogType log_level)
         return;
     }
     // now that we have the sequence number, create the log file
-    sprintf(_logFileName, "log/log_%d.txt", _logSequenceNumber);
+    sprintf_P(_logFileName, PSTR("log/log_%d.txt"), _logSequenceNumber);
     if (SD.exists(_logFileName)) {
         WARNING_LOG(F("DataLogger: log file already exists, removing it"));
         SD.remove(_logFileName);

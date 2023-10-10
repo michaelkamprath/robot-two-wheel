@@ -132,7 +132,7 @@ void Robot::turn(int degrees) {
     } else if (degrees < -180) {
         degrees += 360;
     }
-    sprintf(DataLogger::commonBuffer(), "Robot::turn: turning %d degrees", degrees);
+    sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning %d degrees"), degrees);
     INFO_LOG(DataLogger::commonBuffer());
 
     // convert the angle to a fraction of a full turn
@@ -152,12 +152,12 @@ void Robot::turn(int degrees) {
      digitalWrite(MOVING_LED_PIN, HIGH);
     // turn right if degrees is positive, left if degrees is negative
     if (degrees > 0) {
-        sprintf(DataLogger::commonBuffer(), "Robot::turn: turning right %d degrees with target disc hole count = %lu", degrees, target_disc_hole_count);
+        sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning right %d degrees with target disc hole count = %lu"), degrees, target_disc_hole_count);
         INFO_LOG(DataLogger::commonBuffer());
         _motorController.forwardA();
         _motorController.backwardB();
     } else {
-        sprintf(DataLogger::commonBuffer(), "Robot::turn: turning left %d degrees with target disc hole count = %lu", degrees, target_disc_hole_count);
+        sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning left %d degrees with target disc hole count = %lu"), degrees, target_disc_hole_count);
         INFO_LOG(DataLogger::commonBuffer());
         _motorController.backwardA();
         _motorController.forwardB();
@@ -192,9 +192,9 @@ void Robot::turn(int degrees) {
                 }                   
             }
         }
-        sprintf(
+        sprintf_P(
             DataLogger::commonBuffer(),
-            "Robot::turn: Turning\n   left wheel counter : %lu\n   right wheel counter: %lu\n   left wheel power: %d\n   right wheel power: %d",
+            PSTR("Robot::turn: Turning\n   left wheel counter : %lu\n   right wheel counter: %lu\n   left wheel power: %d\n   right wheel power: %d"),
             _leftWheelCounter,
             _rightWheelCounter,
             _speedModel.getSpeedA(),
@@ -204,9 +204,9 @@ void Robot::turn(int degrees) {
     }
     _motorController.stop();
     digitalWrite(MOVING_LED_PIN, LOW);
-    sprintf(
+    sprintf_P(
         DataLogger::commonBuffer(),
-        "Robot::turn: complete\n   left wheel counter : %lu\n   right wheel counter: %lu",
+        PSTR("Robot::turn: complete\n   left wheel counter : %lu\n   right wheel counter: %lu"),
         _leftWheelCounter,
         _rightWheelCounter
     );
@@ -235,9 +235,9 @@ void Robot::move(int millimeters) {
     
     // first calculate wheel rotation count for the distance.
     uint32_t target_wheel_tick_count = (abs(millimeters) / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT + 1;
-    sprintf(
+    sprintf_P(
         DataLogger::commonBuffer(),
-        "Robot::move: moving %d millimeters with target wheel tick count = %lu",
+        PSTR("Robot::move: moving %d millimeters with target wheel tick count = %lu"),
         millimeters,
         target_wheel_tick_count
     );
@@ -246,9 +246,9 @@ void Robot::move(int millimeters) {
     _speedModel.startSpeedControl(TARGET_SPEED);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
-    sprintf(
+    sprintf_P(
         DataLogger::commonBuffer(),
-        "Robot::move: initial left power = %d, initial right power = %d",
+        PSTR("Robot::move: initial left power = %d, initial right power = %d"),
         _speedModel.getSpeedA(),
         _speedModel.getSpeedB()
     );
@@ -388,9 +388,9 @@ void Robot::move(int millimeters) {
 
     int final_speed_left = _speedModel.getSpeedA();
     int final_speed_right = _speedModel.getSpeedB();
-    sprintf(
+    sprintf_P(
         DataLogger::commonBuffer(),
-        "Robot::move: complete, left wheel counter : %lu, right wheel counter: %lu, left wheel power: %d, right wheel power: %d",
+        PSTR("Robot::move: complete, left wheel counter : %lu, right wheel counter: %lu, left wheel power: %d, right wheel power: %d"),
         _leftWheelCounter,
         _rightWheelCounter,
         final_speed_left,
