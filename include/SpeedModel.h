@@ -23,6 +23,7 @@ public:
 
     void reset();
 
+    void setAverageSpeed(uint8_t speed);
     void startSpeedControl(uint8_t targetSpeed);
     void updateSpeedsForEqualRotation(
         uint32_t deltaA,            // Counter delta for motor A

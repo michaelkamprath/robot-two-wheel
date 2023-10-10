@@ -22,6 +22,9 @@ const int CONTROLLER_SAMPLE_PERIOD = 80;       // milliseconds
 const double WHEEL_CIRCUMFERENCE = 214; // millimeters
 const double WHEEL_BASE = 132.5;          // millimeters
 
+const uint8_t TARGET_SPEED = 160;       // 0-255
+const uint8_t MIN_SPEED = 100;          // 0-255
+
 // Turning angle formula (in radians):
 //
 //   angle = WHEEL_CIRCUMFERENCE*((outside_wheel_count - inside_wheel_count)/DISC_HOLE_COUNT)/WHEEL_BASE
@@ -240,7 +243,7 @@ void Robot::move(int millimeters) {
     );
     INFO_LOG(DataLogger::commonBuffer());
 
-    _speedModel.startSpeedControl(150);
+    _speedModel.startSpeedControl(TARGET_SPEED);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
     sprintf(
@@ -263,6 +266,7 @@ void Robot::move(int millimeters) {
     double turning_angle = 0.0;
     double turning_radius = 0.0;
     double cur_bearing = 0.0;
+    bool slowDownInitiated = false;
 
     digitalWrite(MOVING_LED_PIN, HIGH);
     _motorController.forward();
@@ -286,6 +290,8 @@ void Robot::move(int millimeters) {
                 curLeftWheelCounter,
                 curRightWheelCounter
             );
+
+
 
             // calculate the horizontal displacement
             if (rightDelta > leftDelta) {
@@ -311,6 +317,11 @@ void Robot::move(int millimeters) {
                 forward_distance += WHEEL_CIRCUMFERENCE*leftDelta/DISC_HOLE_COUNT;
             }
 
+            // if we are less than 20% of the target distance, then we need to start slowing down
+            if (!slowDownInitiated && (forward_distance >= 0.8*fabs(millimeters))) {
+                _speedModel.setAverageSpeed(MIN_SPEED);
+                slowDownInitiated = true;
+            }
 
             if ((_speedModel.getSpeedA() != _motorController.getSpeedA()) || (_speedModel.getSpeedB() != _motorController.getSpeedB())) {
                 // must stop motors to change speed

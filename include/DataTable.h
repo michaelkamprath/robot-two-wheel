@@ -93,9 +93,10 @@ void DataTable<T>::append_row(int num_columns, ...) {
 template <typename T>
 String DataTable<T>::get_csv_string(FieldFormatter formatter) const {
     String csv_string = "";
+    int last_column = _num_columns - 1;
     for (int i = 0; i < _num_columns; i++) {
         csv_string += _column_names[i];
-        if (i < _num_columns - 1) {
+        if (i < last_column) {
             csv_string += ",";
         }
     }
@@ -104,7 +105,7 @@ String DataTable<T>::get_csv_string(FieldFormatter formatter) const {
     for (int i = 0; i < _num_rows; i++) {
         for (int j = 0; j < _num_columns; j++) {
             csv_string += formatter(_data[i][j], j);
-            if (j < _num_columns - 1) {
+            if (j < last_column) {
                 csv_string += ",";
             }
         }

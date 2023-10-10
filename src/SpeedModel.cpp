@@ -48,7 +48,16 @@ SpeedModel::~SpeedModel() {
 }
 
 void SpeedModel::startSpeedControl(uint8_t speed) {
-    double leftRightRatio = 1.0;
+    
+    setAverageSpeed(speed);
+    _pidController.begin();
+    _pidController.setpoint(0.0);
+    _pidController.tune(4, 3, 2);
+    // _pidController.limit(-min(30, _averageSpeed), min(30, 255-_averageSpeed));
+}
+
+void SpeedModel::setAverageSpeed(uint8_t speed) {
+   double leftRightRatio = 1.0;
     if (speed <= lrRatioPowerLevel[0]) {
         speed = lrRatioPowerLevel[0];
         leftRightRatio = lrRatioValue[0];
@@ -61,7 +70,7 @@ void SpeedModel::startSpeedControl(uint8_t speed) {
                 if (i < POWER_RATIO_COUNT - 1) {
                     sprintf(
                         DataLogger::commonBuffer(),
-                        "SpeedModel::startSpeedControl: Interpolating between %d and %d for power level %hu",
+                        "SpeedModel::setAverageSpeed: Interpolating between %d and %d for power level %hu",
                         lrRatioPowerLevel[i-1],
                         lrRatioPowerLevel[i],
                         speed
@@ -90,17 +99,12 @@ void SpeedModel::startSpeedControl(uint8_t speed) {
 
     sprintf(
         DataLogger::commonBuffer(),
-        "SpeedModel::startSpeedControl: Setting average speed to %s and left/right ratio to %s, speed requested = %hu",
+        "SpeedModel::setAverageSpeed: Setting average speed to %s and left/right ratio to %s, speed requested = %hu",
         String(_averageSpeed,5).c_str(),
         String(leftRightRatio,5).c_str(),
         speed
     );
     DEBUG_LOG(DataLogger::commonBuffer());
-
-    _pidController.begin();
-    _pidController.setpoint(0.0);
-    _pidController.tune(4, 3, 2);
-    // _pidController.limit(-min(30, _averageSpeed), min(30, 255-_averageSpeed));
 }
 
 void SpeedModel::reset() {
