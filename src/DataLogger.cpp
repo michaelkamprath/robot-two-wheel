@@ -107,42 +107,53 @@ void DataLogger::loop() {
 
 }
 
+const String& DataLogger::get_log_prefix(LogType logType) const {
+    switch (logType) {
+        default:
+        case NONE:
+            return EMPTY_STRING;
+        case DEBUG:
+            return DEBUG_PREFIX;
+        case INFO:
+            return INFO_PREFIX;
+        case WARNING:
+            return WARNING_PREFIX;
+        case ERROR:
+            return ERROR_PREFIX;
+    }
+}  
+
 void DataLogger::log(LogType logType, const char* message) {
     if (logType < _logLevel && logType != NONE) {
         return;
     }
-    const String* prefix;
-    switch (logType) {
-        default:
-        case NONE:
-            prefix = &EMPTY_STRING;
-            break;
-        case DEBUG:
-            prefix = &DEBUG_PREFIX;
-            break;
-        case INFO:
-            prefix = &INFO_PREFIX;
-            break;
-        case WARNING:
-            prefix = &WARNING_PREFIX;
-            break;
-        case ERROR:
-            prefix = &ERROR_PREFIX;
-            break;
-    }
-    Serial.print(*prefix);
+    const String& prefix = get_log_prefix(logType);
+    Serial.print(prefix);
     Serial.println(message);
     if (_logFileName[0] != '\0') {
         File logFile = SD.open(_logFileName, FILE_WRITE);
         if (logFile) {
-            logFile.print(*prefix);
+            logFile.print(prefix);
             logFile.println(message);
             logFile.close();
         }
     } 
 }
+ 
 
 void DataLogger::log(LogType logType, const __FlashStringHelper* message) {
-    strcpy_P(_buffer, (const char*)message);
-    log(logType, _buffer);
+   if (logType < _logLevel && logType != NONE) {
+        return;
+    }
+    const String& prefix = get_log_prefix(logType);
+    Serial.print(prefix);
+    Serial.println(message);
+    if (_logFileName[0] != '\0') {
+        File logFile = SD.open(_logFileName, FILE_WRITE);
+        if (logFile) {
+            logFile.print(prefix);
+            logFile.println(message);
+            logFile.close();
+        }
+    }
 }

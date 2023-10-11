@@ -29,6 +29,7 @@ private:
 protected:
     static DataLogger* _instance;
 
+    const String& get_log_prefix(LogType logType) const;
 public:
     static void init(LogType log_level = DEBUG)         { new DataLogger(log_level); }
     static DataLogger* getInstance()                    { return _instance; }
@@ -39,7 +40,6 @@ public:
     virtual ~DataLogger();
 
     void loop();
-
     void log(LogType, const char* message);
     void log(LogType, const __FlashStringHelper* message);
 
