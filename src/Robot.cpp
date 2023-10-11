@@ -214,7 +214,7 @@ void Robot::turn(int degrees) {
 }   
 
 void Robot::move(int millimeters) {
-    const int NUM_DATA_COLUMNS = 14;
+    const int NUM_DATA_COLUMNS = 15;
     String column_headers[] {
         "timestamp",
         "left wheel counter",
@@ -223,7 +223,8 @@ void Robot::move(int millimeters) {
         "right wheel counter delta",
         "left wheel power",
         "right wheel power",
-        "forward distance", 
+        "forward distance increment",
+        "forward distance total", 
         "turning angle",
         "turning radius",
         "current bearing",
@@ -294,12 +295,13 @@ void Robot::move(int millimeters) {
 
 
             // calculate the horizontal displacement
+            double forward_distance_increment = 0.0;
             if (rightDelta > leftDelta) {
                 // turning left
                 turning_angle = CALC_TURNING_ANGLE(rightDelta, leftDelta);
                 cur_bearing += turning_angle;
                 turning_radius = CALC_TURNING_RADIUS(rightDelta, leftDelta);
-                forward_distance += CALC_VERTICAL_DISTANCE(turning_radius, turning_angle, rightDelta);
+                forward_distance_increment = CALC_VERTICAL_DISTANCE(turning_radius, turning_angle, rightDelta);
                 horizontal_displacement -= CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle);
             }
             else if (leftDelta > rightDelta) {
@@ -307,15 +309,16 @@ void Robot::move(int millimeters) {
                 turning_angle = -CALC_TURNING_ANGLE(leftDelta, rightDelta);
                 cur_bearing += turning_angle;
                 turning_radius = CALC_TURNING_RADIUS(leftDelta, rightDelta);
-                forward_distance += CALC_VERTICAL_DISTANCE(turning_radius, -turning_angle, leftDelta);
+                forward_distance_increment = CALC_VERTICAL_DISTANCE(turning_radius, -turning_angle, leftDelta);
                 horizontal_displacement += -CALC_HORIZONTAL_DISTANCE(turning_radius, -turning_angle);
             }
             else {
                 // going straight
                 turning_angle = 0.0;
                 turning_radius = 0.0;
-                forward_distance += WHEEL_CIRCUMFERENCE*leftDelta/DISC_HOLE_COUNT;
+                forward_distance_increment = WHEEL_CIRCUMFERENCE*leftDelta/DISC_HOLE_COUNT;
             }
+            forward_distance += forward_distance_increment;
 
             // if we are less than 20% of the target distance, then we need to start slowing down
             if (!slowDownInitiated && (forward_distance >= 0.8*fabs(millimeters))) {
@@ -350,6 +353,7 @@ void Robot::move(int millimeters) {
                 double(rightDelta),
                 double(_speedModel.getSpeedA()),
                 double(_speedModel.getSpeedB()),
+                forward_distance_increment,
                 forward_distance,
                 turning_angle,
                 turning_radius,
@@ -377,7 +381,8 @@ void Robot::move(int millimeters) {
         double(0),
         double(_speedModel.getSpeedA()),
         double(_speedModel.getSpeedB()),
-        ((_leftWheelCounter + _rightWheelCounter)/2.0)*WHEEL_CIRCUMFERENCE/DISC_HOLE_COUNT,
+        double(0),
+        forward_distance,
         double(0),
         double(0),
         cur_bearing,

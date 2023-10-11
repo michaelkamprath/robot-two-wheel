@@ -2,6 +2,13 @@
 #define __DATATABLE_H__
 #include <Arduino.h>
 
+// DataTable is a class that stores data in a table and then can output the contents as a CSV. Class is designed to 
+// collect data as efficiently as possible, then later output the data as a CSV when timing is not so critical.
+//
+// The table has a fixed number of columns of a consistent type, but the number of rows can grow dynamically. The 
+// table is initialized with a set of column names. Rows are added  to the table using the append_row method. The 
+// append_row method takes the number of columns as th first argument, followed by the values for each column.
+//
 template <typename T> class DataTable {
 private:
     int _num_columns;
