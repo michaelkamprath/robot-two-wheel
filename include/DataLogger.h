@@ -1,6 +1,7 @@
 #ifndef __DATALOGGER_H__
 #define __DATALOGGER_H__
 #include <Arduino.h>
+#include "DataTable.h"
 
 #define DEBUG_LOG(message) DataLogger::getInstance()->debug(message)
 #define INFO_LOG(message) DataLogger::getInstance()->info(message)
@@ -42,7 +43,14 @@ public:
     void loop();
     void log(LogType, const char* message);
     void log(LogType, const __FlashStringHelper* message);
-
+    void log(LogType logType, const String& message);
+    void log_data_table(const DataTable<double>& dataTable, DataTable<double>::FieldFormatter formatter = [](double value, int col_num) -> String {
+        return String(value);
+    });
+    void log_data_table(const DataTable<int>& dataTable, DataTable<int>::FieldFormatter formatter = [](int value, int col_num) -> String {
+        return String(value);
+    });
+    
     void debug(const char* message)                     { log(DEBUG, message); }
     void info(const char* message)                      { log(INFO, message); }
     void warning(const char* message)                   { log(WARNING, message); }

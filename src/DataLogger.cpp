@@ -123,6 +123,27 @@ const String& DataLogger::get_log_prefix(LogType logType) const {
     }
 }  
 
+void DataLogger::log(LogType logType, const String& message) {
+    if (logType < _logLevel && logType != NONE) {
+        return;
+    }
+    const String& prefix = get_log_prefix(logType);
+    Serial.print(prefix);
+    Serial.println(message);
+    if (_logFileName[0] != '\0') {
+        File logFile = SD.open(_logFileName, FILE_WRITE);
+        if ((bool)logFile) {
+            logFile.print(prefix);
+            logFile.println(message);
+            logFile.flush();
+            logFile.close();
+        } else {
+            Serial.print(F("DataLogger::log: could not open log file for writing: "));
+            Serial.println(_logFileName);
+        }
+    } 
+}
+
 void DataLogger::log(LogType logType, const char* message) {
     if (logType < _logLevel && logType != NONE) {
         return;
@@ -135,7 +156,11 @@ void DataLogger::log(LogType logType, const char* message) {
         if (logFile) {
             logFile.print(prefix);
             logFile.println(message);
+            logFile.flush();
             logFile.close();
+        } else {
+            Serial.print(F("DataLogger::log: could not open log file for writing: "));
+            Serial.println(_logFileName);
         }
     } 
 }
@@ -153,7 +178,43 @@ void DataLogger::log(LogType logType, const __FlashStringHelper* message) {
         if (logFile) {
             logFile.print(prefix);
             logFile.println(message);
+            logFile.flush();
             logFile.close();
+        } else {
+            Serial.print(F("DataLogger::log: could not open log file for writing: "));
+            Serial.println(_logFileName);
+        }
+    } 
+}
+
+void DataLogger::log_data_table(const DataTable<double>& dataTable, DataTable<double>::FieldFormatter formatter) {
+    dataTable.write_to_stream(Serial);
+
+    if (_logFileName[0] != '\0') {
+        File logFile = SD.open(_logFileName, FILE_WRITE);
+        if (logFile) {
+            dataTable.write_to_stream(logFile, formatter);
+            logFile.flush();
+            logFile.close();
+        } else {
+            Serial.print(F("DataLogger::log_data_table: could not open log file for writing: "));
+            Serial.println(_logFileName);
+        }
+    }
+}
+
+void DataLogger::log_data_table(const DataTable<int>& dataTable, DataTable<int>::FieldFormatter formatter) {
+    dataTable.write_to_stream(Serial);
+
+    if (_logFileName[0] != '\0') {
+        File logFile = SD.open(_logFileName, FILE_WRITE);
+        if (logFile) {
+            dataTable.write_to_stream(logFile, formatter);
+            logFile.flush();
+            logFile.close();
+        } else {
+            Serial.print(F("DataLogger::log_data_table: could not open log file for writing: "));
+            Serial.println(_logFileName);
         }
     }
 }

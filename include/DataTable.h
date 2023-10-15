@@ -20,16 +20,20 @@ private:
     T** _data;
 
 protected:
-    void extend(void);
+    // extends the storage for the table by _initial_size rows. returns true if the storage was extended, false
+    // otherwise.
+    bool extend(void);
 
 public:
     DataTable(int num_columns, String* column_names, int initial_size = 10);
     virtual ~DataTable();
 
-    void append_row(int num_columns, ...);
+    // adds a row to the table. The number of columns must match the number of columns in the table.
+    // returns true if the row was added, false otherwise.
+    bool append_row(int num_columns, ...);
 
     using FieldFormatter = String (*)(T, int);
-    String get_csv_string(FieldFormatter formatter = [](T value, int col_num) -> String {
+    void write_to_stream(Stream& stream, FieldFormatter formatter = [](T value, int col_num) -> String {
         return String(value);
     }) const;
 };
@@ -58,10 +62,12 @@ DataTable<T>::~DataTable() {
 }
 
 template <typename T>
-void DataTable<T>::extend(void) {
+bool DataTable<T>::extend(void) {
     int new_size = _current_size + _initial_size;
     T** new_data = new T*[new_size];
-
+    if (new_data == NULL) {
+        return false;
+    }
     // copy over existing data
     for (int i = 0; i < _current_size; i++) {
         new_data[i] = _data[i];
@@ -78,15 +84,19 @@ void DataTable<T>::extend(void) {
     // update data vector
     _data = new_data;
     _current_size = new_size;
+
+    return true;
 }
 
 template <typename T>
-void DataTable<T>::append_row(int num_columns, ...) {
+bool DataTable<T>::append_row(int num_columns, ...) {
     if (num_columns != _num_columns) {
-        return;
+        return false;
     }
     if (_num_rows == _current_size) {
-        extend();
+        if (!extend()) {
+            return false;
+        }
     }
     va_list args;
     va_start(args, num_columns);
@@ -95,30 +105,31 @@ void DataTable<T>::append_row(int num_columns, ...) {
     }
     va_end(args);
     _num_rows++;
+    return true;
 }
 
 template <typename T>
-String DataTable<T>::get_csv_string(FieldFormatter formatter) const {
-    String csv_string = "";
+void DataTable<T>::write_to_stream(Stream& stream, FieldFormatter formatter) const {
     int last_column = _num_columns - 1;
     for (int i = 0; i < _num_columns; i++) {
-        csv_string += _column_names[i];
+        stream.print(_column_names[i]);
         if (i < last_column) {
-            csv_string += ",";
+            stream.print(",");
         }
     }
-    csv_string += "\n";
+    stream.println("");
+    stream.flush();
 
     for (int i = 0; i < _num_rows; i++) {
         for (int j = 0; j < _num_columns; j++) {
-            csv_string += formatter(_data[i][j], j);
+            stream.print(formatter(_data[i][j], j));
             if (j < last_column) {
-                csv_string += ",";
+                stream.print(",");
             }
         }
-        csv_string += "\n";
+        stream.println("");
+        stream.flush();
     }
-    return csv_string;
 }
 
 #endif // __DATATABLE_H__

@@ -368,10 +368,11 @@ void Robot::move(int millimeters) {
     _motorController.stop();
     // ensure that the robot has stopped moving by reversing for a short time
     _motorController.backward();
-    delay(5);
+    delay(100);
     _motorController.stop();
     digitalWrite(MOVING_LED_PIN, LOW);
 
+    // capture final state
     move_data.append_row(
         NUM_DATA_COLUMNS,
         double(currentMillis),
@@ -404,43 +405,42 @@ void Robot::move(int millimeters) {
     DEBUG_LOG(DataLogger::commonBuffer());
 
     DEBUG_LOG(F("Robot::move: the movement data:"));
-    DataLogger::getInstance()->log(
-        DataLogger::NONE, 
-        move_data.get_csv_string(
-            [](double value, int col_num) -> String {
-                switch(col_num) {
-                    case 0:
-                    case 1:
-                    case 2:
-                    case 3:
-                    case 4:
-                    case 5:
-                    case 6:
-                    case 11:
-                        return String(value, 0);
-                        break;
-                    default:
+    DataLogger::getInstance()->log_data_table(
+        move_data, 
+        [](double value, int col_num) -> String {
+            switch(col_num) {
+                case 0:
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 11:
+                    return String(value, 0);
+                    break;
+                default:
+                    return String(value, 2);
+                    break;
+                case 8:
+                case 10:
+                case 13:
+                    if (value == 0.0) {
+                        return String("0");
+                    } else {
+                        return String(value, 8);
+                    }
+                    break;
+                case 7:
+                case 9:
+                case 12:
+                    if (value == 0.0) {
+                        return String("0");
+                    } else {
                         return String(value, 2);
-                        break;
-                    case 8:
-                    case 10:
-                    case 13:
-                        if (value == 0.0) {
-                            return String("0");
-                        } else {
-                            return String(value, 8);
-                        }
-                        break;
-                    case 7:
-                    case 9:
-                    case 12:
-                        if (value == 0.0) {
-                            return String("0");
-                        } else {
-                            return String(value, 2);
-                        }
-                        break;
-                }
+                    }
+                    break;
             }
-        ).c_str());
+        }
+    );
 }
