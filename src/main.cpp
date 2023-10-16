@@ -27,4 +27,4 @@ void loop() {
     driver->loop();
 }
 
-#endif // ndef UNIT_TEST
+#endif

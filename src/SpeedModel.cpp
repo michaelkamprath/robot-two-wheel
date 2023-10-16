@@ -116,11 +116,11 @@ void SpeedModel::reset() {
 }
 
 uint8_t SpeedModel::getSpeedA() const {
-    return max(min(_speedA + _adjustment, 255),0);
+    return max(min(_speedA + _adjustment/2, 255),0);
 }
 
 uint8_t SpeedModel::getSpeedB() const {
-    return max(min(_speedB - _adjustment, 255),0);
+    return max(min(_speedB - _adjustment/2, 255),0);
 }
 
 void SpeedModel::updateSpeedsForEqualRotation(

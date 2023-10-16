@@ -13,3 +13,6 @@ def get_firmware_specifier_build_flag():
 env.Append(
     BUILD_FLAGS=[get_firmware_specifier_build_flag()]
 )
+
+if "test" in env["BUILD_TYPE"]:
+    env.Append(CPPDEFINES=["UNITY_INCLUDE_DOUBLE"])

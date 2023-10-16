@@ -188,7 +188,7 @@ void DataLogger::log(LogType logType, const __FlashStringHelper* message) {
 }
 
 void DataLogger::log_data_table(const DataTable<double>& dataTable, DataTable<double>::FieldFormatter formatter) {
-    dataTable.write_to_stream(Serial);
+    dataTable.write_to_stream(Serial, formatter);
 
     if (_logFileName[0] != '\0') {
         File logFile = SD.open(_logFileName, FILE_WRITE);
@@ -204,7 +204,7 @@ void DataLogger::log_data_table(const DataTable<double>& dataTable, DataTable<do
 }
 
 void DataLogger::log_data_table(const DataTable<int>& dataTable, DataTable<int>::FieldFormatter formatter) {
-    dataTable.write_to_stream(Serial);
+    dataTable.write_to_stream(Serial, formatter);
 
     if (_logFileName[0] != '\0') {
         File logFile = SD.open(_logFileName, FILE_WRITE);

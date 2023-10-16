@@ -1,6 +1,7 @@
 #ifndef __DRIVER_H__
 #define __DRIVER_H__
 #include "Robot.h"
+#include "PointSequence.h"
 
 class Driver {
 private:
@@ -12,6 +13,7 @@ public:
     virtual ~Driver();
     void loop();
 
+    void trace_path(const PointSequence& path);
 };
 
 

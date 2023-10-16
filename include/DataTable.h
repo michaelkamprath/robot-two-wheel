@@ -26,6 +26,7 @@ protected:
 
 public:
     DataTable(int num_columns, String* column_names, int initial_size = 10);
+    DataTable(const DataTable<T>& other);
     virtual ~DataTable();
 
     // adds a row to the table. The number of columns must match the number of columns in the table.
@@ -41,15 +42,44 @@ public:
 template <typename T>
 DataTable<T>::DataTable(int num_columns, String* column_names, int initial_size)
     :   _num_columns(num_columns),
-        _column_names(column_names),
+        _column_names(nullptr),
         _current_size(initial_size),
         _initial_size(initial_size),
         _num_rows(0),
-        _data(NULL)
+        _data(nullptr)
 {
+    _column_names = new String[_num_columns];
+    for (int i = 0; i < _num_columns; i++) {
+        _column_names[i] = column_names[i];
+    }
+
     _data = new T*[_current_size];
     for (int i = 0; i < _current_size; i++) {
         _data[i] = new T[_num_columns];
+    }
+}
+
+template <typename T>
+DataTable<T>::DataTable(const DataTable<T>& other)
+    :   _num_columns(other._num_columns),
+        _column_names(nullptr),
+        _current_size(other._current_size),
+        _initial_size(other._initial_size),
+        _num_rows(other._num_rows),
+        _data(nullptr)
+{
+    _column_names = new String[_num_columns];
+    for (int i = 0; i < _num_columns; i++) {
+        _column_names[i] = other._column_names[i];
+    }
+    _data = new T*[_current_size];
+    for (int i = 0; i < _current_size; i++) {
+        _data[i] = new T[_num_columns];
+        if (i < _num_rows ) {
+            for (int j = 0; j < _num_columns; j++) {
+                _data[i][j] = other._data[i][j];
+            }
+        }
     }
 }
 
@@ -59,6 +89,7 @@ DataTable<T>::~DataTable() {
         delete[] _data[i];
     }
     delete[] _data;
+    delete[] _column_names;
 }
 
 template <typename T>

@@ -92,6 +92,13 @@ Robot::~Robot() {
     // TODO Auto-generated destructor stub
 }
 
+int Robot::min_turn_angle() const {
+    return 180.0*(1.0/DISC_HOLE_COUNT);
+}
+
+int Robot::min_move_distance() const {
+    return ceil(WHEEL_CIRCUMFERENCE/DISC_HOLE_COUNT);
+}
 void Robot::loop() {
     // unset button press if button is not pressed
     if (digitalRead(BUTTON_PIN) == HIGH) {
@@ -123,7 +130,7 @@ void Robot::handleRightWheelCounterISR() {
     _rightWheelCounter++;
 }
 
-void Robot::turn(int degrees) {
+int Robot::turn(int degrees) {
     // a 180 degree turn would be one full turn of each wheel in opoosite directions.
     // first task would be to calculate what fraction of a full turn each wheel needs to make.
     // convert the angle to equavilent value on range of -180 degrees to 180 degrees
@@ -150,9 +157,9 @@ void Robot::turn(int degrees) {
     _motorController.setSpeedB(_speedModel.getSpeedB());
 
      digitalWrite(MOVING_LED_PIN, HIGH);
-    // turn right if degrees is positive, left if degrees is negative
-    if (degrees > 0) {
-        sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning right %d degrees with target disc hole count = %lu"), degrees, target_disc_hole_count);
+    // turn right if degrees is negative, left if degrees is postive
+    if (degrees < 0) {
+        sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning right %d degrees with target disc hole count = %lu"), abs(degrees), target_disc_hole_count);
         INFO_LOG(DataLogger::commonBuffer());
         _motorController.forwardA();
         _motorController.backwardB();
@@ -211,9 +218,12 @@ void Robot::turn(int degrees) {
         _rightWheelCounter
     );
     DEBUG_LOG(DataLogger::commonBuffer());
+
+    // TODO: calculate the actual number of degrees turned
+    return degrees;
 }   
 
-void Robot::move(int millimeters) {
+Point Robot::move(int millimeters) {
     const int NUM_DATA_COLUMNS = 15;
     String column_headers[] {
         "timestamp",
@@ -417,6 +427,7 @@ void Robot::move(int millimeters) {
                 case 5:
                 case 6:
                 case 11:
+                case 12:
                     return String(value, 0);
                     break;
                 default:
@@ -433,7 +444,6 @@ void Robot::move(int millimeters) {
                     break;
                 case 7:
                 case 9:
-                case 12:
                     if (value == 0.0) {
                         return String("0");
                     } else {
@@ -443,4 +453,6 @@ void Robot::move(int millimeters) {
             }
         }
     );
+
+    return Point(horizontal_displacement, forward_distance);
 }
