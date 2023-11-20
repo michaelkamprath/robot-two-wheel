@@ -14,7 +14,7 @@ public:
     void clear();
     void set_buffer(const String& buffer);
 
-    operator String() const                     { return _buffer; } 
+    operator String() const                     { return _buffer; }
     const String& to_string() const             { return _buffer; }
 
     // Stream interface
