@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include "DataLogger.h"
 #include "Driver.h"
 #ifndef UNIT_TEST
@@ -12,6 +13,7 @@ const int STATUS_LED_PIN = 13;
 Driver* driver;
 
 void setup() {
+    Wire.begin();
     Serial.begin(57600);
     DataLogger::init();
 

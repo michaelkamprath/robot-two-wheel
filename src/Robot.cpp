@@ -3,14 +3,14 @@
 #include "DataTable.h"
 
 const int LEFT_MOTOR_ENABLE_PIN = 7;
-const int LEFT_MOTOR_FORWARD_PIN = 5;
-const int LEFT_MOTOR_BACKWARD_PIN = 6;
-const int RIGHT_MOTOR_ENABLE_PIN = 2;
-const int RIGHT_MOTOR_FORWARD_PIN = 3;
-const int RIGHT_MOTOR_BACKWARD_PIN = 4;
+const int LEFT_MOTOR_FORWARD_PIN = 4;
+const int LEFT_MOTOR_BACKWARD_PIN = 5;
+const int RIGHT_MOTOR_ENABLE_PIN = 6;
+const int RIGHT_MOTOR_FORWARD_PIN = 2;
+const int RIGHT_MOTOR_BACKWARD_PIN = 3;
 
-const int LEFT_ROTATION_COUNTER_PIN = 20;
-const int RIGHT_ROTATION_COUNTER_PIN = 21;
+const int LEFT_ROTATION_COUNTER_PIN = 18;
+const int RIGHT_ROTATION_COUNTER_PIN = 19;
 
 const int MOVING_LED_PIN = 22;
 const int BUTTON_PIN = 26;
@@ -69,6 +69,7 @@ Robot::Robot()
             RIGHT_MOTOR_BACKWARD_PIN
         ),
         _speedModel(DISC_HOLE_COUNT),
+        _headingCalculator(),
         _leftWheelCounter(0),
         _rightWheelCounter(0)
 {
@@ -196,7 +197,7 @@ int Robot::turn(int degrees) {
                 } else {
                     _motorController.backwardA();
                     _motorController.forwardB();
-                }                   
+                }
             }
         }
         sprintf_P(
@@ -221,7 +222,7 @@ int Robot::turn(int degrees) {
 
     // TODO: calculate the actual number of degrees turned
     return degrees;
-}   
+}
 
 Point Robot::move(int millimeters) {
     const int NUM_DATA_COLUMNS = 15;
@@ -234,7 +235,7 @@ Point Robot::move(int millimeters) {
         "left wheel power",
         "right wheel power",
         "forward distance increment",
-        "forward distance total", 
+        "forward distance total",
         "turning angle",
         "turning radius",
         "current bearing",
@@ -243,7 +244,7 @@ Point Robot::move(int millimeters) {
         "current stearing adjustment"
     };
     DataTable<double> move_data(NUM_DATA_COLUMNS, column_headers, 50);
-    
+
     // first calculate wheel rotation count for the distance.
     uint32_t target_wheel_tick_count = (abs(millimeters) / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT + 1;
     sprintf_P(
@@ -264,7 +265,7 @@ Point Robot::move(int millimeters) {
         _speedModel.getSpeedB()
     );
     DEBUG_LOG(DataLogger::commonBuffer());
-    
+
     // initialize counters
     _leftWheelCounter = 0;
     _rightWheelCounter = 0;

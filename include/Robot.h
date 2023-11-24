@@ -3,6 +3,7 @@
 #include <L298NX2.h>
 #include "SpeedModel.h"
 #include "Point.h"
+#include "HeadingCalculator.h"
 
 void leftRotationCounterISR();
 void rightRotationCounterISR();
@@ -12,6 +13,7 @@ private:
     bool _buttonPressed;
     L298NX2 _motorController;
     SpeedModel _speedModel;
+    HeadingCalculator _headingCalculator;
 
     uint32_t _leftWheelCounter;
     uint32_t _rightWheelCounter;
