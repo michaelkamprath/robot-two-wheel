@@ -2,13 +2,11 @@
 #define __DATATABLE_H__
 #include <Arduino.h>
 
-// DataTable is a class that stores data in a table and then can output the contents as a CSV. Class is designed to
-// collect data as efficiently as possible, then later output the data as a CSV when timing is not so critical.
-//
-// The table has a fixed number of columns of a consistent type, but the number of rows can grow dynamically. The
-// table is initialized with a set of column names. Rows are added  to the table using the append_row method. The
-// append_row method takes the number of columns as th first argument, followed by the values for each column.
-//
+/// @brief A class that stores data in a table and then can output the contents as a CSV. Class is designed to
+/// collect data as efficiently as possible, then later output the data as a CSV when timing is not so critical.
+/// The table has a fixed number of columns of a consistent type, but the number of rows can grow dynamically. The
+/// table is initialized with a set of column names. Rows are added  to the table using the append_row method. The
+/// append_row method takes the number of columns as th first argument, followed by the values for each column.
 template <typename T> class DataTable {
 private:
     int _num_columns;
@@ -25,15 +23,34 @@ protected:
     bool extend(void);
 
 public:
+    /// @brief Construct a new DataTable object
+    /// @param num_columns Number of columns in the table
+    /// @param column_names Array of column names
+    /// @param initial_size The initail allocted size of the table. If the table grows beyond this size,
+    /// the table's storage will be extended by initial_size rows.
     DataTable(int num_columns, String* column_names, int initial_size = 10);
+
+    /// @brief Copy constructor
+    /// @param other the DataTable to copy
     DataTable(const DataTable<T>& other);
+
     virtual ~DataTable();
 
-    // adds a row to the table. The number of columns must match the number of columns in the table.
-    // returns true if the row was added, false otherwise.
+    /// @brief adds a row to the table. The number of columns must match the number of columns in the table.
+    /// @param num_columns Number of columns in the row
+    /// @param ... The values for each column in the row. There should be as many values as there are columns.
+    /// @returns true if the row was added, false otherwise.
     bool append_row(int num_columns, ...);
 
+    /// @brief A function that can be used to format the output of a field in the table.
+    /// @param value The value of the field to be formatted
+    /// @param col_num The column number of the field to be formatted
     using FieldFormatter = String (*)(T, int);
+
+    /// @brief Write the contents of the table to a stream as a CSV.
+    /// @param stream The `Stream` object to write to.
+    /// @param formatter A `FieldFormatter` function that can be used to format the output of a field in the table. Defaults
+    /// to a function that simply converts the value to a string using a default encoder for the column type.
     void write_to_stream(Stream& stream, FieldFormatter formatter = [](T value, int col_num) -> String {
         return String(value);
     }) const;
