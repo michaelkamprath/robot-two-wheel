@@ -50,7 +50,7 @@ public:
     void log_data_table(const DataTable<int>& dataTable, DataTable<int>::FieldFormatter formatter = [](int value, int col_num) -> String {
         return String(value);
     });
-    
+
     void debug(const char* message)                     { log(DEBUG, message); }
     void info(const char* message)                      { log(INFO, message); }
     void warning(const char* message)                   { log(WARNING, message); }

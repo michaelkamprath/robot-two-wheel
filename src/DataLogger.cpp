@@ -18,7 +18,7 @@ const String INFO_PREFIX = "INFO: ";
 const String WARNING_PREFIX = "WARNING: ";
 const String ERROR_PREFIX = "ERROR: ";
 
-DataLogger::DataLogger(LogType log_level) 
+DataLogger::DataLogger(LogType log_level)
     :   _logLevel(log_level)
 {
     if (_instance == nullptr) {
@@ -58,7 +58,7 @@ DataLogger::DataLogger(LogType log_level)
         if (!SD.exists("log/sequence.txt")) {
             ERROR_LOG(F("DataLogger: could not create sequence number file"));
             return;
-        }   
+        }
     }
     File sequenceNumberFile = SD.open("log/sequence.txt", FILE_READ);
     if (sequenceNumberFile) {
@@ -94,7 +94,7 @@ DataLogger::DataLogger(LogType log_level)
     if (!logFile) {
         ERROR_LOG(F("DataLogger: could not create log file"));
     } else {
-        logFile.println(F("DataLogger: log file created"));
+        DEBUG_LOG(F("DataLogger: log file created"));
         logFile.close();
     }
 }
@@ -121,7 +121,7 @@ const String& DataLogger::get_log_prefix(LogType logType) const {
         case ERROR:
             return ERROR_PREFIX;
     }
-}  
+}
 
 void DataLogger::log(LogType logType, const String& message) {
     if (logType < _logLevel && logType != NONE) {
@@ -141,7 +141,7 @@ void DataLogger::log(LogType logType, const String& message) {
             Serial.print(F("DataLogger::log: could not open log file for writing: "));
             Serial.println(_logFileName);
         }
-    } 
+    }
 }
 
 void DataLogger::log(LogType logType, const char* message) {
@@ -162,9 +162,8 @@ void DataLogger::log(LogType logType, const char* message) {
             Serial.print(F("DataLogger::log: could not open log file for writing: "));
             Serial.println(_logFileName);
         }
-    } 
+    }
 }
- 
 
 void DataLogger::log(LogType logType, const __FlashStringHelper* message) {
    if (logType < _logLevel && logType != NONE) {
@@ -184,7 +183,7 @@ void DataLogger::log(LogType logType, const __FlashStringHelper* message) {
             Serial.print(F("DataLogger::log: could not open log file for writing: "));
             Serial.println(_logFileName);
         }
-    } 
+    }
 }
 
 void DataLogger::log_data_table(const DataTable<double>& dataTable, DataTable<double>::FieldFormatter formatter) {

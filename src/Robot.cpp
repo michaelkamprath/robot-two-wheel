@@ -23,8 +23,8 @@ const int CONTROLLER_SAMPLE_PERIOD = 80;       // milliseconds
 const double WHEEL_CIRCUMFERENCE = 214; // millimeters
 const double WHEEL_BASE = 132.5;          // millimeters
 
-const uint8_t TARGET_SPEED = 160;       // 0-255
-const uint8_t MIN_SPEED = 100;          // 0-255
+const uint8_t TARGET_SPEED = 140;       // 0-255
+const uint8_t MIN_SPEED = 80;          // 0-255
 
 const float HEADING_PID_CONTROLLER_KP = 20.0;
 const float HEADING_PID_CONTROLLER_KI = 0.0;
@@ -63,7 +63,7 @@ void rightRotationCounterISR() {
 }
 
 
-Robot::Robot() 
+Robot::Robot()
     :   _buttonPressed(false),
         _motorController(
             LEFT_MOTOR_ENABLE_PIN,
@@ -99,7 +99,7 @@ Robot::~Robot() {
 }
 
 int Robot::min_turn_angle() const {
-    return 180.0*(1.0/DISC_HOLE_COUNT);
+    return ceil(180.0*(1.0/DISC_HOLE_COUNT));
 }
 
 int Robot::min_move_distance() const {
@@ -139,100 +139,148 @@ void Robot::handleRightWheelCounterISR() {
 }
 
 int Robot::turn(int degrees) {
-#if 0
-    // a 180 degree turn would be one full turn of each wheel in opoosite directions.
-    // first task would be to calculate what fraction of a full turn each wheel needs to make.
-    // convert the angle to equavilent value on range of -180 degrees to 180 degrees
-    if (degrees > 180) {
-        degrees -= 360;
-    } else if (degrees < -180) {
-        degrees += 360;
-    }
-    sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning %d degrees"), degrees);
-    INFO_LOG(DataLogger::commonBuffer());
+const int NUM_DATA_COLUMNS = 7;
+    String column_headers[] {
+        "timestamp",                // 0
+        "left wheel counter",       // 1
+        "right wheel counter",      // 2
+        "heading",                  // 3
+        "target heading",           // 4
+        "heading error"             // 5
+        "power"                     // 6
+    };
 
-    // convert the angle to a fraction of a full turn
-    float fractionOfFullTurn = fabs(degrees) / 180.0;
-    // convert the fraction of a full turn to a fraction of the number of holes in the disc
-    uint32_t target_disc_hole_count = DISC_HOLE_COUNT*fractionOfFullTurn;
-    // initialize counters
-    _leftWheelCounter = 0;
-    _rightWheelCounter = 0;
-    int lastLeftWheelCounter = _leftWheelCounter;
-    int lastRighWheelCounter = _rightWheelCounter;
-    // power to 30%
-    _speedModel.startSpeedControl(150);
-    _motorController.setSpeedA(_speedModel.getSpeedA());
-    _motorController.setSpeedB(_speedModel.getSpeedB());
 
-     digitalWrite(MOVING_LED_PIN, HIGH);
-    // turn right if degrees is negative, left if degrees is postive
-    if (degrees < 0) {
-        sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning right %d degrees with target disc hole count = %lu"), abs(degrees), target_disc_hole_count);
-        INFO_LOG(DataLogger::commonBuffer());
-        _motorController.forwardA();
-        _motorController.backwardB();
-    } else {
-        sprintf_P(DataLogger::commonBuffer(), PSTR("Robot::turn: turning left %d degrees with target disc hole count = %lu"), degrees, target_disc_hole_count);
-        INFO_LOG(DataLogger::commonBuffer());
-        _motorController.backwardA();
-        _motorController.forwardB();
-    }
-
-    unsigned long currentMillis = millis();
-    unsigned long lastCheckinMillis = currentMillis;
-    while (_leftWheelCounter < target_disc_hole_count && _rightWheelCounter < target_disc_hole_count) {
-        unsigned long deltaMillis = currentMillis - lastCheckinMillis;
-        if (deltaMillis > CONTROLLER_SAMPLE_PERIOD/2) {
-            int leftDelta = _leftWheelCounter - lastLeftWheelCounter;
-            int rightDelta = _rightWheelCounter - lastRighWheelCounter;
-            lastLeftWheelCounter = _leftWheelCounter;
-            lastRighWheelCounter = _rightWheelCounter;
-            _speedModel.updateSpeedsForEqualRotation(
-                leftDelta,
-                rightDelta,
-                _leftWheelCounter,
-                _rightWheelCounter
-            );
-            if ((_speedModel.getSpeedA() != _motorController.getSpeedA()) || (_speedModel.getSpeedB() != _motorController.getSpeedB())) {
-                // must stop motors to change speed
-                _motorController.stop();
-                _motorController.setSpeedA(_speedModel.getSpeedA());
-                _motorController.setSpeedB(_speedModel.getSpeedB());
-                if (degrees > 0) {
-                    _motorController.forwardA();
-                    _motorController.backwardB();
-                } else {
-                    _motorController.backwardA();
-                    _motorController.forwardB();
-                }
-            }
-        }
-        sprintf_P(
-            DataLogger::commonBuffer(),
-            PSTR("Robot::turn: Turning\n   left wheel counter : %lu\n   right wheel counter: %lu\n   left wheel power: %d\n   right wheel power: %d"),
-            _leftWheelCounter,
-            _rightWheelCounter,
-            _speedModel.getSpeedA(),
-            _speedModel.getSpeedB()
-        );
-        DEBUG_LOG(DataLogger::commonBuffer());
-    }
-    _motorController.stop();
-    digitalWrite(MOVING_LED_PIN, LOW);
     sprintf_P(
         DataLogger::commonBuffer(),
-        PSTR("Robot::turn: complete\n   left wheel counter : %lu\n   right wheel counter: %lu"),
-        _leftWheelCounter,
-        _rightWheelCounter
+        PSTR("Robot::turn: turning %d degrees"),
+        degrees
     );
     DEBUG_LOG(DataLogger::commonBuffer());
 
-    // TODO: calculate the actual number of degrees turned
-    return degrees;
-#else
-    return 0;
-#endif
+    if (abs(degrees) < min_turn_angle()) {
+        sprintf_P(
+            DataLogger::commonBuffer(),
+            PSTR("Robot::turn: turning angle (%d) is less than minimum turn angle magnitude (%d)"),
+            degrees,
+            min_turn_angle()
+        );
+        DEBUG_LOG(DataLogger::commonBuffer());
+        return 0;
+    }
+    DataTable<double> turn_data(NUM_DATA_COLUMNS, column_headers, 35);
+
+    // use the heading calculator to keep track of the heading
+    _headingCalculator.reset();
+
+    uint8_t start_power = 150;
+    uint8_t stop_power = 75;
+    uint8_t current_power = start_power;
+    double heading_error = degrees;
+
+    unsigned long currentMillis = millis();
+    unsigned long lastCheckinMillis = currentMillis;
+
+    _motorController.setSpeed(start_power);
+    if (degrees > 0) {
+        _motorController.backwardA();
+        _motorController.forwardB();
+    } else {
+        _motorController.forwardA();
+        _motorController.backwardB();
+    }
+
+    turn_data.append_row(
+        NUM_DATA_COLUMNS,
+        double(currentMillis),
+        double(_leftWheelCounter),
+        double(_rightWheelCounter),
+        _headingCalculator.getHeading(),
+        double(degrees),
+        heading_error,
+        double(current_power)
+    );
+    while ((heading_error = fabs(degrees - _headingCalculator.getHeading())) > this->min_turn_angle()) {
+        this->loop();
+        currentMillis = millis();
+        unsigned long deltaMillis = currentMillis - lastCheckinMillis;
+        if (deltaMillis > CONTROLLER_SAMPLE_PERIOD) {
+            lastCheckinMillis = currentMillis;
+            sprintf_P(
+                DataLogger::commonBuffer(),
+                PSTR("Robot::turn: heading error = %f"),
+                heading_error
+            );
+            DEBUG_LOG(DataLogger::commonBuffer());
+
+            // calculate new power setting
+            current_power = stop_power + min(heading_error/fabs(degrees), 1.0)*(start_power - stop_power);
+            _motorController.stop();
+            _motorController.setSpeed(start_power);
+            if (degrees > 0) {
+                _motorController.backwardA();
+                _motorController.forwardB();
+            } else {
+                _motorController.forwardA();
+                _motorController.backwardB();
+            }
+            turn_data.append_row(
+                NUM_DATA_COLUMNS,
+                double(currentMillis),
+                double(_leftWheelCounter),
+                double(_rightWheelCounter),
+                _headingCalculator.getHeading(),
+                double(degrees),
+                heading_error,
+                double(current_power)
+            );
+        }
+
+    }
+
+    _motorController.stop();
+    _motorController.setSpeed(0);
+    turn_data.append_row(
+        NUM_DATA_COLUMNS,
+        double(currentMillis),
+        double(_leftWheelCounter),
+        double(_rightWheelCounter),
+        _headingCalculator.getHeading(),
+        double(degrees),
+        heading_error,
+        double(current_power)
+    );
+
+    sprintf_P(
+        DataLogger::commonBuffer(),
+        PSTR("Robot::turn: complete, target degress: %d, heading: %s"),
+        degrees,
+        String(_headingCalculator.getHeading(),2).c_str()
+    );
+    DEBUG_LOG(DataLogger::commonBuffer());
+
+    DEBUG_LOG(F("Robot::turn: the turn data:"));
+    DataLogger::getInstance()->log_data_table(
+        turn_data,
+        [](double value, int col_num) -> String {
+            switch(col_num) {
+                case 0:
+                case 1:
+                case 2:
+                case 4:
+                case 6:
+                default:
+                    return String(value, 0);
+                    break;
+                case 3:
+                case 5:
+                    return String(value, 2);
+                    break;
+            }
+        }
+    );
+
+    return _headingCalculator.getHeading();
 }
 
 Point Robot::move(int millimeters) {
@@ -253,7 +301,7 @@ Point Robot::move(int millimeters) {
         "current gyro heading",             // 12
         "target wheel tick count",          // 13
         "cumulative stearing error",        // 14
-        "current stearing adjustment"       // 15
+        "control signal"                    // 15
     };
     DataTable<double> move_data(NUM_DATA_COLUMNS, column_headers, 35);
 
@@ -268,6 +316,7 @@ Point Robot::move(int millimeters) {
     INFO_LOG(DataLogger::commonBuffer());
 
     // initialize speed model
+    _speedModel.setAverageSpeed(TARGET_SPEED);
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
     sprintf_P(
@@ -344,20 +393,24 @@ Point Robot::move(int millimeters) {
 
             wheel_bearing += turning_angle;
 
-            float gyro_heading = _headingCalculator.getHeading();
-            float control_signal = controller.update(
+            double gyro_heading = _headingCalculator.getHeading();
+            double control_signal = controller.update(
                 gyro_heading,
                 currentMillis
             );
 
+            uint8_t power_adjustment = (uint8_t)abs(control_signal);
+
             // positive control signal means turn left, a negative control signal means turn right
             if (control_signal > 0.0) {
-                _motorController.setSpeedA(_speedModel.getSpeedA() - control_signal);
-                _motorController.setSpeedB(_speedModel.getSpeedB() + control_signal);
+                _motorController.setSpeedA(_speedModel.getSpeedA() - power_adjustment);
+                _motorController.setSpeedB(_speedModel.getSpeedB() + power_adjustment);
             } else {
-                _motorController.setSpeedA(_speedModel.getSpeedA() - control_signal);
-                _motorController.setSpeedB(_speedModel.getSpeedB() + control_signal);
+                _motorController.setSpeedA(_speedModel.getSpeedA() - power_adjustment);
+                _motorController.setSpeedB(_speedModel.getSpeedB() + power_adjustment);
             }
+            // need to call forward() again to set the PWN values
+            _motorController.forward();
 
             move_data.append_row(
                 NUM_DATA_COLUMNS,
@@ -366,8 +419,8 @@ Point Robot::move(int millimeters) {
                 double(curRightWheelCounter),
                 double(leftDelta),
                 double(rightDelta),
-                double(_speedModel.getSpeedA()),
-                double(_speedModel.getSpeedB()),
+                double(_motorController.getSpeedA()),
+                double(_motorController.getSpeedB()),
                 forward_distance_increment,
                 forward_distance,
                 turning_angle,
@@ -395,8 +448,8 @@ Point Robot::move(int millimeters) {
         double(_rightWheelCounter),
         double(0),
         double(0),
-        double(_speedModel.getSpeedA()),
-        double(_speedModel.getSpeedB()),
+        double(_motorController.getSpeedA()),
+        double(_motorController.getSpeedB()),
         double(0),
         forward_distance,
         double(0),

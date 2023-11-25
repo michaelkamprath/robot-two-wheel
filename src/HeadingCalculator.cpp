@@ -23,7 +23,7 @@ HeadingCalculator::HeadingCalculator()
     _mpu.setFullScaleGyroRange(GYRO_FULL_SCALE);
 
     // set the mpu6050 offsets. These were determined by running the calibration code in the
-    // Arduino C++ library and then converting the results to Rust. The calibration code is here:
+    // Arduino C++ library. The calibration code is here:
     //      https://github.com/ElectronicCats/mpu6050/blob/master/examples/IMU_Zero/IMU_Zero.ino
     //
     _mpu.setXAccelOffset(-2505);
@@ -58,6 +58,13 @@ float HeadingCalculator::update()
 
         _heading += gyro_angle;
         _lastUpdate = now;
+
+        if (_heading > 180) {
+            _heading -= 360;
+        }
+        else if (_heading < -180) {
+            _heading += 360;
+        }
     }
 
     return _heading;

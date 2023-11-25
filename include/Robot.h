@@ -18,8 +18,6 @@ private:
     uint32_t _leftWheelCounter;
     uint32_t _rightWheelCounter;
 
-
-
 protected:
     friend void leftRotationCounterISR();
     friend void rightRotationCounterISR();
@@ -47,13 +45,14 @@ public:
     // with a y value equal to the number of millimeters moved, and an x value of 0.
     Point move(int millimeters);
 
-    // The minimum size a turn needs to be for the robot to actually turn. This is to prevent the robot from turning
-    // for very small turns, which would be a waste of time and probably inaccurate.
-    // Expressed in degrees.
+    /// @brief The minimum size a turn needs to be for the robot to actually turn. This is to prevent the robot from turning
+    /// for very small turns, which would be a waste of time and probably inaccurate.
+    /// @return The minimum turn angle in degrees.
     int min_turn_angle() const;
 
-    // The minimum distance the robot needs to move for the robot to actually move. This is to prevent the robot from
-    // moving for very small distances, which would be a waste of time and probably inaccurate.
+    /// @brief The minimum distance the robot needs to move for the robot to actually move. This is to prevent the robot from
+    /// moving for very small distances, which would be a waste of time and probably inaccurate.
+    /// @return The minimum move distance in millimeters.
     int min_move_distance() const;
 };
 
