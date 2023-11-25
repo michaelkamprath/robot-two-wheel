@@ -18,6 +18,9 @@ private:
     uint32_t _leftWheelCounter;
     uint32_t _rightWheelCounter;
 
+    unsigned long _statusLEDUpdateTime;
+    unsigned long _statusLEDUpdateInterval;
+
 protected:
     friend void leftRotationCounterISR();
     friend void rightRotationCounterISR();
@@ -29,20 +32,29 @@ public:
 
     Robot();
     virtual ~Robot();
+
+    /// @brief The main loop of the robot. Call this in the main loop of the program.
     void loop();
 
+    void statusLEDBlinkFast()               { _statusLEDUpdateInterval = 100; }
+    void statusLEDBlinkSlow()               { _statusLEDUpdateInterval = 1000; }
+
+    /// @brief IS the robot button newly pressed?
+    /// @return true if the button is pressed, false otherwise.
     bool buttonPressed();
 
-    // turn the robot by the specified number of degrees. A positive number turns the robot counter clockise (left), and a negative
-    // number turns the robot clockwise (right) (all per the right hand rule).
-    // returns the number of degrees the robot actually turned. This is useful for keeping track of the robot's orientation.
+    /// @brief turn the robot by the specified number of degrees.
+    /// @param degrees The number of degrees to turn. A positive number turns the robot counter clockise (left), and a negative
+    /// number turns the robot clockwise (right) (all per the right hand rule).
+    /// @return returns the number of degrees the robot actually turned. This is useful for keeping track of the robot's orientation.
     int turn(int degrees);
 
-    // move the robot forward or backward by the specified number of millimeters. A positive number moves the robot
-    // forward, and a negative number moves the robot backward.
-    // Returns the point the robot moved to relative to it's starting point, with axis y being the forward motion and axis X being any
-    // horizontal deviation. This is useful for keeping track of the robot's position. A perfect forward motion would result in a point
-    // with a y value equal to the number of millimeters moved, and an x value of 0.
+    /// @brief move the robot forward or backward by the specified number of millimeters. A positive number moves the robot
+    /// forward, and a negative number moves the robot backward.
+    /// @param millimeters The number of millimeters to move the robot.
+    /// @return Returns the point the robot moved to relative to it's starting point, with axis y being the forward motion and axis X being any
+    /// horizontal deviation. This is useful for keeping track of the robot's position. A perfect forward motion would result in a point
+    /// with a y value equal to the number of millimeters moved, and an x value of 0.
     Point move(int millimeters);
 
     /// @brief The minimum size a turn needs to be for the robot to actually turn. This is to prevent the robot from turning

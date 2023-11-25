@@ -13,6 +13,7 @@ const int RIGHT_MOTOR_BACKWARD_PIN = 3;
 const int LEFT_ROTATION_COUNTER_PIN = 18;
 const int RIGHT_ROTATION_COUNTER_PIN = 19;
 
+const int STATUS_LED_PIN = 13;
 const int MOVING_LED_PIN = 22;
 const int BUTTON_PIN = 26;
 
@@ -76,7 +77,9 @@ Robot::Robot()
         _speedModel(DISC_HOLE_COUNT),
         _headingCalculator(),
         _leftWheelCounter(0),
-        _rightWheelCounter(0)
+        _rightWheelCounter(0),
+        _statusLEDUpdateTime(millis()),
+        _statusLEDUpdateInterval(1000)
 {
     if (instance == nullptr) {
         instance = this;
@@ -85,6 +88,10 @@ Robot::Robot()
     }
 
     _motorController.stop();
+
+    pinMode(STATUS_LED_PIN, OUTPUT);
+    digitalWrite(STATUS_LED_PIN, HIGH);
+
     pinMode(MOVING_LED_PIN, OUTPUT);
     digitalWrite(MOVING_LED_PIN, LOW);
 
@@ -112,6 +119,11 @@ void Robot::loop() {
     }
 
     _headingCalculator.update();
+
+    if (millis() - _statusLEDUpdateTime > _statusLEDUpdateInterval) {
+        _statusLEDUpdateTime = millis();
+        digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
+    }
 }
 
 // checks button state. Returns true if button is newly pressed
