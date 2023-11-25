@@ -1,3 +1,0 @@
-[submodule "lib/PIDArduino"]
-	path = lib/PIDArduino
-	url = git@github.com:michaelkamprath/PIDArduino.git

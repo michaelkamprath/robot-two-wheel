@@ -1,6 +1,7 @@
 #include "Robot.h"
 #include "DataLogger.h"
 #include "DataTable.h"
+#include "PIDController.h"
 
 const int LEFT_MOTOR_ENABLE_PIN = 7;
 const int LEFT_MOTOR_FORWARD_PIN = 4;
@@ -24,6 +25,10 @@ const double WHEEL_BASE = 132.5;          // millimeters
 
 const uint8_t TARGET_SPEED = 160;       // 0-255
 const uint8_t MIN_SPEED = 100;          // 0-255
+
+const float HEADING_PID_CONTROLLER_KP = 20.0;
+const float HEADING_PID_CONTROLLER_KI = 0.0;
+const float HEADING_PID_CONTROLLER_KD = 0.0;
 
 // Turning angle formula (in radians):
 //
@@ -105,6 +110,8 @@ void Robot::loop() {
     if (digitalRead(BUTTON_PIN) == HIGH) {
         _buttonPressed = false;
     }
+
+    _headingCalculator.update();
 }
 
 // checks button state. Returns true if button is newly pressed
@@ -132,6 +139,7 @@ void Robot::handleRightWheelCounterISR() {
 }
 
 int Robot::turn(int degrees) {
+#if 0
     // a 180 degree turn would be one full turn of each wheel in opoosite directions.
     // first task would be to calculate what fraction of a full turn each wheel needs to make.
     // convert the angle to equavilent value on range of -180 degrees to 180 degrees
@@ -222,28 +230,32 @@ int Robot::turn(int degrees) {
 
     // TODO: calculate the actual number of degrees turned
     return degrees;
+#else
+    return 0;
+#endif
 }
 
 Point Robot::move(int millimeters) {
-    const int NUM_DATA_COLUMNS = 15;
+    const int NUM_DATA_COLUMNS = 16;
     String column_headers[] {
-        "timestamp",
-        "left wheel counter",
-        "right wheel counter",
-        "left wheel counter delta",
-        "right wheel counter delta",
-        "left wheel power",
-        "right wheel power",
-        "forward distance increment",
-        "forward distance total",
-        "turning angle",
-        "turning radius",
-        "current bearing",
-        "target wheel tick count",
-        "cumulative stearing error",
-        "current stearing adjustment"
+        "timestamp",                        // 0
+        "left wheel counter",               // 1
+        "right wheel counter",              // 2
+        "left wheel counter delta",         // 3
+        "right wheel counter delta",        // 4
+        "left wheel power",                 // 5
+        "right wheel power",                // 6
+        "forward distance increment",       // 7
+        "forward distance total",           // 8
+        "wheel turning angle",              // 9
+        "wheel turning radius",             // 10
+        "current wheel bearing",            // 11
+        "current gyro heading",             // 12
+        "target wheel tick count",          // 13
+        "cumulative stearing error",        // 14
+        "current stearing adjustment"       // 15
     };
-    DataTable<double> move_data(NUM_DATA_COLUMNS, column_headers, 50);
+    DataTable<double> move_data(NUM_DATA_COLUMNS, column_headers, 35);
 
     // first calculate wheel rotation count for the distance.
     uint32_t target_wheel_tick_count = (abs(millimeters) / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT + 1;
@@ -255,7 +267,7 @@ Point Robot::move(int millimeters) {
     );
     INFO_LOG(DataLogger::commonBuffer());
 
-    _speedModel.startSpeedControl(TARGET_SPEED);
+    // initialize speed model
     _motorController.setSpeedA(_speedModel.getSpeedA());
     _motorController.setSpeedB(_speedModel.getSpeedB());
     sprintf_P(
@@ -266,6 +278,17 @@ Point Robot::move(int millimeters) {
     );
     DEBUG_LOG(DataLogger::commonBuffer());
 
+    // set up the controller
+    PIDController controller(
+        HEADING_PID_CONTROLLER_KP,
+        HEADING_PID_CONTROLLER_KI,
+        HEADING_PID_CONTROLLER_KD,
+        -30,
+        30
+    );
+    controller.setSetPoint(0.0); // keep heading straight
+    DEBUG_LOG(F("Robot::move: controller initialized"));
+
     // initialize counters
     _leftWheelCounter = 0;
     _rightWheelCounter = 0;
@@ -274,85 +297,66 @@ Point Robot::move(int millimeters) {
     uint32_t lastRighWheelCounter = _rightWheelCounter;
 
     double forward_distance = 0.0;
+    double forward_distance_increment = 0.0;
     double horizontal_displacement = 0.0;
     double turning_angle = 0.0;
     double turning_radius = 0.0;
-    double cur_bearing = 0.0;
+    double wheel_bearing = 0.0;
     bool slowDownInitiated = false;
+    _headingCalculator.reset();
 
     digitalWrite(MOVING_LED_PIN, HIGH);
+    DEBUG_LOG(F("Robot::move: starting motors"));
     _motorController.forward();
     unsigned long currentMillis = millis();
     unsigned long lastCheckinMillis = currentMillis;
     while ( (_leftWheelCounter < target_wheel_tick_count) || (_rightWheelCounter < target_wheel_tick_count)) {
+        this->loop();
+        currentMillis = millis();
         unsigned long deltaMillis = currentMillis - lastCheckinMillis;
         if (deltaMillis > CONTROLLER_SAMPLE_PERIOD) {
+            lastCheckinMillis = currentMillis;
             uint32_t curLeftWheelCounter = _leftWheelCounter;
             uint32_t curRightWheelCounter = _rightWheelCounter;
-            int leftDelta = curLeftWheelCounter - lastLeftWheelCounter;
-            int rightDelta = curRightWheelCounter - lastRighWheelCounter;
-            lastCheckinMillis = currentMillis;
+            uint32_t leftDelta = curLeftWheelCounter - lastLeftWheelCounter;
+            uint32_t rightDelta = curRightWheelCounter - lastRighWheelCounter;
             lastLeftWheelCounter = curLeftWheelCounter;
             lastRighWheelCounter = curRightWheelCounter;
 
-
-            _speedModel.updateSpeedsForEqualRotation(
-                leftDelta,
-                rightDelta,
-                curLeftWheelCounter,
-                curRightWheelCounter
-            );
-
-
-
-            // calculate the horizontal displacement
-            double forward_distance_increment = 0.0;
             if (rightDelta > leftDelta) {
-                // turning left
                 turning_angle = CALC_TURNING_ANGLE(rightDelta, leftDelta);
-                cur_bearing += turning_angle;
                 turning_radius = CALC_TURNING_RADIUS(rightDelta, leftDelta);
-                forward_distance_increment = CALC_VERTICAL_DISTANCE(turning_radius, turning_angle, rightDelta);
-                horizontal_displacement -= CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle);
-            }
-            else if (leftDelta > rightDelta) {
-                // turning right
-                turning_angle = -CALC_TURNING_ANGLE(leftDelta, rightDelta);
-                cur_bearing += turning_angle;
+                forward_distance_increment = (turning_radius+WHEEL_BASE/2)*sin(turning_angle);
+                horizontal_displacement += CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle);
+            } else if (leftDelta > rightDelta) {
+                turning_angle = CALC_TURNING_ANGLE(leftDelta, rightDelta);
                 turning_radius = CALC_TURNING_RADIUS(leftDelta, rightDelta);
-                forward_distance_increment = CALC_VERTICAL_DISTANCE(turning_radius, -turning_angle, leftDelta);
-                horizontal_displacement += -CALC_HORIZONTAL_DISTANCE(turning_radius, -turning_angle);
-            }
-            else {
-                // going straight
+                forward_distance_increment = (turning_radius+WHEEL_BASE/2)*sin(turning_angle);
+                turning_angle = -turning_angle;
+                horizontal_displacement += CALC_HORIZONTAL_DISTANCE(turning_radius, turning_angle);
+            } else {
                 turning_angle = 0.0;
-                turning_radius = 0.0;
-                forward_distance_increment = WHEEL_CIRCUMFERENCE*leftDelta/DISC_HOLE_COUNT;
+                forward_distance_increment = rightDelta*WHEEL_CIRCUMFERENCE/(double)DISC_HOLE_COUNT;
             }
+
+            turning_angle *= 180.0/PI;
             forward_distance += forward_distance_increment;
 
-            // if we are less than 20% of the target distance, then we need to start slowing down
-            if (!slowDownInitiated && (forward_distance >= 0.8*fabs(millimeters))) {
-                _speedModel.setAverageSpeed(MIN_SPEED);
-                slowDownInitiated = true;
-            }
+            wheel_bearing += turning_angle;
 
-            if ((_speedModel.getSpeedA() != _motorController.getSpeedA()) || (_speedModel.getSpeedB() != _motorController.getSpeedB())) {
-                // must stop motors to change speed
-                _motorController.stop();
-                _motorController.setSpeedA(_speedModel.getSpeedA());
-                _motorController.setSpeedB(_speedModel.getSpeedB());
-                _motorController.forward();
-            }
-            // update target wheel tick count
-            double remaining_distance = fabs(millimeters) - forward_distance;
-            if (remaining_distance > 0) {
-                target_wheel_tick_count =
-                        (curLeftWheelCounter + curRightWheelCounter)/2 
-                        + (remaining_distance / WHEEL_CIRCUMFERENCE) * DISC_HOLE_COUNT
-                        + 1;
+            float gyro_heading = _headingCalculator.getHeading();
+            float control_signal = controller.update(
+                gyro_heading,
+                currentMillis
+            );
+
+            // positive control signal means turn left, a negative control signal means turn right
+            if (control_signal > 0.0) {
+                _motorController.setSpeedA(_speedModel.getSpeedA() - control_signal);
+                _motorController.setSpeedB(_speedModel.getSpeedB() + control_signal);
             } else {
-                target_wheel_tick_count = (curLeftWheelCounter + curRightWheelCounter)/2;
+                _motorController.setSpeedA(_speedModel.getSpeedA() - control_signal);
+                _motorController.setSpeedB(_speedModel.getSpeedB() + control_signal);
             }
 
             move_data.append_row(
@@ -368,13 +372,13 @@ Point Robot::move(int millimeters) {
                 forward_distance,
                 turning_angle,
                 turning_radius,
-                cur_bearing,
+                wheel_bearing,
+                gyro_heading,
                 double(target_wheel_tick_count),
-                _speedModel.getCumulativeError(),
-                _speedModel.getCurrentAdjustment()
+                controller.getCumulativeError(),
+                control_signal
             );
         }
-        currentMillis = millis();
     }
     _motorController.stop();
     // ensure that the robot has stopped moving by reversing for a short time
@@ -397,10 +401,11 @@ Point Robot::move(int millimeters) {
         forward_distance,
         double(0),
         double(0),
-        cur_bearing,
+        wheel_bearing,
+        _headingCalculator.getHeading(),
         double(target_wheel_tick_count),
-        _speedModel.getCumulativeError(),
-        _speedModel.getCurrentAdjustment()
+        controller.getCumulativeError(),
+        0.0
     );
 
     int final_speed_left = _speedModel.getSpeedA();
@@ -417,7 +422,7 @@ Point Robot::move(int millimeters) {
 
     DEBUG_LOG(F("Robot::move: the movement data:"));
     DataLogger::getInstance()->log_data_table(
-        move_data, 
+        move_data,
         [](double value, int col_num) -> String {
             switch(col_num) {
                 case 0:
@@ -427,16 +432,14 @@ Point Robot::move(int millimeters) {
                 case 4:
                 case 5:
                 case 6:
-                case 11:
-                case 12:
+                case 13:
                     return String(value, 0);
                     break;
                 default:
                     return String(value, 2);
                     break;
-                case 8:
-                case 10:
-                case 13:
+                case 14:
+                case 15:
                     if (value == 0.0) {
                         return String("0");
                     } else {
@@ -444,7 +447,11 @@ Point Robot::move(int millimeters) {
                     }
                     break;
                 case 7:
+                case 8:
                 case 9:
+                case 10:
+                case 11:
+                case 12:
                     if (value == 0.0) {
                         return String("0");
                     } else {

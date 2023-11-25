@@ -18,7 +18,7 @@ private:
     uint32_t _leftWheelCounter;
     uint32_t _rightWheelCounter;
 
-    
+
 
 protected:
     friend void leftRotationCounterISR();

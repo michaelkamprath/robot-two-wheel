@@ -9,11 +9,8 @@ private:
 
     double _averageSpeed;
     double _lrRatio;
-    double _adjustment;
     int _speedA;
     int _speedB;
-
-    PIDController _pidController;
 
 public:
     SpeedModel(
@@ -24,19 +21,9 @@ public:
     void reset();
 
     void setAverageSpeed(uint8_t speed);
-    void startSpeedControl(uint8_t targetSpeed);
-    void updateSpeedsForEqualRotation(
-        uint32_t deltaA,            // Counter delta for motor A
-        uint32_t deltaB,            // Counter delta for motor B
-        uint32_t counterA,          // Counter value for motor A since start
-        uint32_t counterB           // Counter value for motor B since start
-    );
 
     uint8_t getSpeedA() const;      // left wheel
     uint8_t getSpeedB() const;      // right wheel
-
-    double getCurrentAdjustment() const     { return _adjustment; }
-    double getCumulativeError() const       { return _pidController.getErrorSum(); } 
 
 };
 

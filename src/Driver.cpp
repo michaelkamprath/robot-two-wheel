@@ -16,12 +16,16 @@ Driver::~Driver() {
 void Driver::loop() {
     _robot.loop();
     if (_isDriving) {
+#if 0
         PointSequence path;
         path.add(Point(0, 0));
         path.add(Point(0, 1000));
         path.add(Point(500, 1000));
         path.add(Point(0, 0));
         trace_path(path);
+#else
+        _robot.move(2000);
+#endif
         INFO_LOG(F("Driver::loop: driving done"));
         _isDriving = false;
     }

@@ -5,6 +5,8 @@
 
 
 const unsigned long HEADING_CALCULATOR_UPDATE_INTERVAL_MILLIS = 50;
+const double GYRO_LSB_PER_DPS = 131;
+const MPU6050_IMU::GYRO_FS GYRO_FULL_SCALE = MPU6050_IMU::GYRO_FS::MPU6050_GYRO_FS_250;
 
 // CALIBRATION
 // ....................	XAccel			YAccel				ZAccel			XGyro			YGyro			ZGyro
@@ -18,7 +20,7 @@ HeadingCalculator::HeadingCalculator()
         _heading(0)
 {
     _mpu.initialize();
-    _mpu.setFullScaleGyroRange(MPU6050_IMU::GYRO_FS::MPU6050_GYRO_FS_250);
+    _mpu.setFullScaleGyroRange(GYRO_FULL_SCALE);
 
     // set the mpu6050 offsets. These were determined by running the calibration code in the
     // Arduino C++ library and then converting the results to Rust. The calibration code is here:
@@ -48,20 +50,17 @@ void HeadingCalculator::reset(int init_heading)
 
 float HeadingCalculator::update()
 {
-    if (millis() > _lastUpdate + HEADING_CALCULATOR_UPDATE_INTERVAL_MILLIS) {
-        _lastUpdate = millis();
-
-        int16_t ax, ay, az;
-        int16_t gx, gy, gz;
-        _mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-
-        float accel_angle = atan2(ay, az) * 180 / M_PI;
-        float gyro_rate = gx / 131.0;
-        float gyro_angle = gyro_rate * (millis() - _lastUpdate) / 1000.0;
+    unsigned long now = millis();
+    if (now > _lastUpdate + HEADING_CALCULATOR_UPDATE_INTERVAL_MILLIS) {
+        double gyro_z = _mpu.getRotationZ();
+        double gyro_rate = gyro_z / GYRO_LSB_PER_DPS;
+        double gyro_angle = gyro_rate * (now - _lastUpdate) / 1000.0;
 
         _heading += gyro_angle;
-        _heading = 0.98 * (_heading + gyro_angle) + 0.02 * accel_angle;
+        _lastUpdate = now;
     }
+
+    return _heading;
 }
 
 
