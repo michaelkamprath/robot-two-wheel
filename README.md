@@ -17,6 +17,7 @@ The robot this code is designed to control is built with the following parts (so
 | 6 AA Battery Holder | [Amazon](https://amzn.to/3r5ddyk) | The chassis kit comes with a 4 AA battery holder, but th robot works better with a 9V power supply |
 | Big Button Module | [Amazon](https://amzn.to/46gTDOx) | Adding a button or two to the robot will allow interactions with the control software. |
 | microSD Module | [Pololu](https://www.pololu.com/product/2587) | Used to collect telemetry while the robot is running autnomously |
+| MPU6050 Gyro/Accelerometer | [Amazon](https://amzn.to/46BBeeS) | Used to determine the turn rate of the robot. |
 
 Furthermore, You might find the following useful:
 
@@ -25,8 +26,9 @@ Furthermore, You might find the following useful:
 | Machine Screws, Bolts, Washers, and Nuts Kit | [Amazon](https://amzn.to/3Pi5QLR) | You will need some hardware to connect parts to the chassis. |
 | Brass Spacer Standoff Kit | [Amazon](https://amzn.to/3EDg58H) | Using standoffs to connect various items to the chassis makes construction easier. |
 | Ball Caster | [Pololu](https://www.pololu.com/product/2692) | The tail caster that comes with the chassis kit creates turning error. A ball caster works better |
+| Hook Up Wire | [Amazon](https://amzn.to/3RfeUDh) | You will need some wire to connect the various components together. |
 
-Finally, some soldering is required, so material and equipment required for soldering is required.
+Finally, some soldering is required, so material and equipment required for soldering is needed.
 
 ## Construction
 
