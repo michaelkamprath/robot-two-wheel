@@ -178,6 +178,8 @@ void DataTable<T>::write_to_stream(Stream& stream, FieldFormatter formatter) con
         stream.println("");
         stream.flush();
     }
+    stream.println("");
+    stream.flush();
 }
 
 #endif // __DATATABLE_H__

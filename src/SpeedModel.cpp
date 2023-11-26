@@ -5,29 +5,35 @@
 // requested power level. The table was produced by setting both motors to the same
 // power level and measuring the left/right ratio. The table is used to interpolate
 // between the measured values.
-#define POWER_RATIO_COUNT 9
+#define POWER_RATIO_COUNT 12
 const int lrRatioPowerLevel[POWER_RATIO_COUNT] = {
-    60,
-    75,
+    70,
+    80,
     90,
-    105,
-    125,
-    175,
+    100,
+    110,
+    120,
+    140,
+    160,
+    180,
     200,
     225,
     255
 };
 
 const double lrRatioValue[POWER_RATIO_COUNT] = {
-    0.7962962963,
-    0.8511530398,
-    0.8844765343,
-    0.8977272727,
-    0.9349112426,
-    0.94921875,
-    0.9498746867,
-    0.9377990431,
-    0.9471871412
+    1.00467,
+    0.98837,
+    1.00244,
+    0.99218,
+    0.98535,
+    1.00406,
+    1.00608,
+    0.99909,
+    0.97128,
+    0.9729,
+    0.95067,
+    0.87813
 };
 
 const uint8_t MIN_POWER_SETTING = 70;

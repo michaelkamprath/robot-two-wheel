@@ -94,8 +94,8 @@ DataLogger::DataLogger(LogType log_level)
     if (!logFile) {
         ERROR_LOG(F("DataLogger: could not create log file"));
     } else {
-        DEBUG_LOG(F("DataLogger: log file created"));
         logFile.close();
+        DEBUG_LOG(F("DataLogger: log file created"));
     }
 }
 

@@ -3,15 +3,15 @@
 #include "DataTable.h"
 #include "PIDController.h"
 
-const int LEFT_MOTOR_ENABLE_PIN = 7;
-const int LEFT_MOTOR_FORWARD_PIN = 4;
-const int LEFT_MOTOR_BACKWARD_PIN = 5;
-const int RIGHT_MOTOR_ENABLE_PIN = 6;
-const int RIGHT_MOTOR_FORWARD_PIN = 2;
-const int RIGHT_MOTOR_BACKWARD_PIN = 3;
+const int LEFT_MOTOR_ENABLE_PIN = 9;            // A motor
+const int LEFT_MOTOR_FORWARD_PIN = 6;           // A motor
+const int LEFT_MOTOR_BACKWARD_PIN = 7;          // A motor
+const int RIGHT_MOTOR_ENABLE_PIN = 8;           // B motor
+const int RIGHT_MOTOR_FORWARD_PIN = 4;          // B motor
+const int RIGHT_MOTOR_BACKWARD_PIN = 5;         // B motor
 
-const int LEFT_ROTATION_COUNTER_PIN = 18;
-const int RIGHT_ROTATION_COUNTER_PIN = 19;
+const int LEFT_ROTATION_COUNTER_PIN = 3;
+const int RIGHT_ROTATION_COUNTER_PIN = 2;
 
 const int STATUS_LED_PIN = 13;
 const int MOVING_LED_PIN = 22;
@@ -19,17 +19,17 @@ const int BUTTON_PIN = 26;
 
 const int DISC_HOLE_COUNT = 20;
 
-const int CONTROLLER_SAMPLE_PERIOD = 80;       // milliseconds
+const int CONTROLLER_SAMPLE_PERIOD = 80;        // milliseconds
 
-const double WHEEL_CIRCUMFERENCE = 214; // millimeters
-const double WHEEL_BASE = 132.5;          // millimeters
+const double WHEEL_CIRCUMFERENCE = 214;         // millimeters
+const double WHEEL_BASE = 132.5;                // millimeters
 
-const uint8_t TARGET_SPEED = 140;       // 0-255
-const uint8_t MIN_SPEED = 80;          // 0-255
+const uint8_t TARGET_SPEED = 100;               // 0-255
+const uint8_t MIN_SPEED = 75;                   // 0-255
 
-const float HEADING_PID_CONTROLLER_KP = 20.0;
-const float HEADING_PID_CONTROLLER_KI = 0.0;
-const float HEADING_PID_CONTROLLER_KD = 0.0;
+const float HEADING_PID_CONTROLLER_KP = 3.0;
+const float HEADING_PID_CONTROLLER_KI = 0.1;
+const float HEADING_PID_CONTROLLER_KD = 0.3;
 
 // Turning angle formula (in radians):
 //
@@ -150,6 +150,29 @@ void Robot::handleRightWheelCounterISR() {
     _rightWheelCounter++;
 }
 
+unsigned long Robot::leftWheelCounter() const  {
+    unsigned long value = 0;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        value = _leftWheelCounter;
+    };
+    return value;
+}
+
+unsigned long Robot::rightWheelCounter() const {
+    unsigned long value = 0;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        value = _rightWheelCounter;
+    };
+    return value;
+}
+
+void Robot::resetWheelCounters() {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        _leftWheelCounter = 0;
+        _rightWheelCounter = 0;
+    }
+}
+
 int Robot::turn(int degrees) {
 const int NUM_DATA_COLUMNS = 7;
     String column_headers[] {
@@ -185,15 +208,13 @@ const int NUM_DATA_COLUMNS = 7;
     // use the heading calculator to keep track of the heading
     _headingCalculator.reset();
 
-    uint8_t start_power = 150;
-    uint8_t stop_power = 75;
-    uint8_t current_power = start_power;
+    uint8_t current_power = 80;
     double heading_error = degrees;
 
     unsigned long currentMillis = millis();
     unsigned long lastCheckinMillis = currentMillis;
 
-    _motorController.setSpeed(start_power);
+    _motorController.setSpeed(current_power);
     if (degrees > 0) {
         _motorController.backwardA();
         _motorController.forwardB();
@@ -205,8 +226,8 @@ const int NUM_DATA_COLUMNS = 7;
     turn_data.append_row(
         NUM_DATA_COLUMNS,
         double(currentMillis),
-        double(_leftWheelCounter),
-        double(_rightWheelCounter),
+        double(this->leftWheelCounter()),
+        double(this->rightWheelCounter()),
         _headingCalculator.getHeading(),
         double(degrees),
         heading_error,
@@ -225,22 +246,11 @@ const int NUM_DATA_COLUMNS = 7;
             );
             DEBUG_LOG(DataLogger::commonBuffer());
 
-            // calculate new power setting
-            current_power = stop_power + min(heading_error/fabs(degrees), 1.0)*(start_power - stop_power);
-            _motorController.stop();
-            _motorController.setSpeed(start_power);
-            if (degrees > 0) {
-                _motorController.backwardA();
-                _motorController.forwardB();
-            } else {
-                _motorController.forwardA();
-                _motorController.backwardB();
-            }
             turn_data.append_row(
                 NUM_DATA_COLUMNS,
                 double(currentMillis),
-                double(_leftWheelCounter),
-                double(_rightWheelCounter),
+                double(this->leftWheelCounter()),
+                double(this->rightWheelCounter()),
                 _headingCalculator.getHeading(),
                 double(degrees),
                 heading_error,
@@ -255,8 +265,8 @@ const int NUM_DATA_COLUMNS = 7;
     turn_data.append_row(
         NUM_DATA_COLUMNS,
         double(currentMillis),
-        double(_leftWheelCounter),
-        double(_rightWheelCounter),
+        double(this->leftWheelCounter()),
+        double(this->rightWheelCounter()),
         _headingCalculator.getHeading(),
         double(degrees),
         heading_error,
@@ -351,11 +361,9 @@ Point Robot::move(int millimeters) {
     DEBUG_LOG(F("Robot::move: controller initialized"));
 
     // initialize counters
-    _leftWheelCounter = 0;
-    _rightWheelCounter = 0;
-
-    uint32_t lastLeftWheelCounter = _leftWheelCounter;
-    uint32_t lastRighWheelCounter = _rightWheelCounter;
+    this->resetWheelCounters();
+    uint32_t lastLeftWheelCounter = this->leftWheelCounter();
+    uint32_t lastRighWheelCounter = this->rightWheelCounter();
 
     double forward_distance = 0.0;
     double forward_distance_increment = 0.0;
@@ -363,7 +371,7 @@ Point Robot::move(int millimeters) {
     double turning_angle = 0.0;
     double turning_radius = 0.0;
     double wheel_bearing = 0.0;
-    bool slowDownInitiated = false;
+
     _headingCalculator.reset();
 
     digitalWrite(MOVING_LED_PIN, HIGH);
@@ -371,14 +379,14 @@ Point Robot::move(int millimeters) {
     _motorController.forward();
     unsigned long currentMillis = millis();
     unsigned long lastCheckinMillis = currentMillis;
-    while ( (_leftWheelCounter < target_wheel_tick_count) || (_rightWheelCounter < target_wheel_tick_count)) {
+    while ( (this->leftWheelCounter() < target_wheel_tick_count) || (this->rightWheelCounter() < target_wheel_tick_count)) {
         this->loop();
         currentMillis = millis();
         unsigned long deltaMillis = currentMillis - lastCheckinMillis;
         if (deltaMillis > CONTROLLER_SAMPLE_PERIOD) {
             lastCheckinMillis = currentMillis;
-            uint32_t curLeftWheelCounter = _leftWheelCounter;
-            uint32_t curRightWheelCounter = _rightWheelCounter;
+            uint32_t curLeftWheelCounter = this->leftWheelCounter();
+            uint32_t curRightWheelCounter = this->rightWheelCounter();
             uint32_t leftDelta = curLeftWheelCounter - lastLeftWheelCounter;
             uint32_t rightDelta = curRightWheelCounter - lastRighWheelCounter;
             lastLeftWheelCounter = curLeftWheelCounter;
@@ -418,8 +426,8 @@ Point Robot::move(int millimeters) {
                 _motorController.setSpeedA(_speedModel.getSpeedA() - power_adjustment);
                 _motorController.setSpeedB(_speedModel.getSpeedB() + power_adjustment);
             } else {
-                _motorController.setSpeedA(_speedModel.getSpeedA() - power_adjustment);
-                _motorController.setSpeedB(_speedModel.getSpeedB() + power_adjustment);
+                _motorController.setSpeedA(_speedModel.getSpeedA() + power_adjustment);
+                _motorController.setSpeedB(_speedModel.getSpeedB() - power_adjustment);
             }
             // need to call forward() again to set the PWN values
             _motorController.forward();
@@ -447,17 +455,15 @@ Point Robot::move(int millimeters) {
     }
     _motorController.stop();
     // ensure that the robot has stopped moving by reversing for a short time
-    _motorController.backward();
-    delay(100);
-    _motorController.stop();
+    this->reverse_brake();
     digitalWrite(MOVING_LED_PIN, LOW);
 
     // capture final state
     move_data.append_row(
         NUM_DATA_COLUMNS,
         double(currentMillis),
-        double(_leftWheelCounter),
-        double(_rightWheelCounter),
+        double(this->leftWheelCounter()),
+        double(this->rightWheelCounter()),
         double(0),
         double(0),
         double(_motorController.getSpeedA()),
@@ -478,14 +484,14 @@ Point Robot::move(int millimeters) {
     sprintf_P(
         DataLogger::commonBuffer(),
         PSTR("Robot::move: complete, left wheel counter : %lu, right wheel counter: %lu, left wheel power: %d, right wheel power: %d"),
-        _leftWheelCounter,
-        _rightWheelCounter,
+        this->leftWheelCounter(),
+        this->rightWheelCounter(),
         final_speed_left,
         final_speed_right
     );
     DEBUG_LOG(DataLogger::commonBuffer());
 
-    DEBUG_LOG(F("Robot::move: the movement data:"));
+    DEBUG_LOG(F("Robot::move: the movement data:\n"));
     DataLogger::getInstance()->log_data_table(
         move_data,
         [](double value, int col_num) -> String {
@@ -528,4 +534,17 @@ Point Robot::move(int millimeters) {
     );
 
     return Point(horizontal_displacement, forward_distance);
+}
+
+void Robot::reverse_brake() {
+    uint8_t current_powerA = _motorController.getSpeedA();
+    uint8_t current_powerB = _motorController.getSpeedB();
+    // set the speed to a low value that is below the torque threshold that will cause the robot to move.
+    // Still, this reverse torque will cause the robot to brake..
+    _motorController.setSpeed(50);
+    _motorController.backward();
+    delay(500);
+    _motorController.stop();
+    _motorController.setSpeedA(current_powerA);
+    _motorController.setSpeedB(current_powerB);
 }

@@ -1,6 +1,7 @@
 #ifndef __ROBOT_H__
 #define __ROBOT_H__
 #include <L298NX2.h>
+#include <util/atomic.h>
 #include "SpeedModel.h"
 #include "Point.h"
 #include "HeadingCalculator.h"
@@ -15,8 +16,8 @@ private:
     SpeedModel _speedModel;
     HeadingCalculator _headingCalculator;
 
-    uint32_t _leftWheelCounter;
-    uint32_t _rightWheelCounter;
+    volatile uint32_t _leftWheelCounter;
+    volatile uint32_t _rightWheelCounter;
 
     unsigned long _statusLEDUpdateTime;
     unsigned long _statusLEDUpdateInterval;
@@ -27,6 +28,8 @@ protected:
 
     void handleLeftWheelCounterISR();
     void handleRightWheelCounterISR();
+
+    void reverse_brake();
 public:
     static Robot* instance;
 
@@ -36,8 +39,12 @@ public:
     /// @brief The main loop of the robot. Call this in the main loop of the program.
     void loop();
 
-    void statusLEDBlinkFast()               { _statusLEDUpdateInterval = 100; }
+    void statusLEDBlinkFast()               { _statusLEDUpdateInterval = 75; }
     void statusLEDBlinkSlow()               { _statusLEDUpdateInterval = 1000; }
+
+    unsigned long leftWheelCounter() const;
+    unsigned long rightWheelCounter() const;
+    void resetWheelCounters();
 
     /// @brief IS the robot button newly pressed?
     /// @return true if the button is pressed, false otherwise.
