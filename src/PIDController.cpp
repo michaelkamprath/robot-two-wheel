@@ -1,5 +1,11 @@
 #include "PIDController.h"
 
+/// @brief Creates a new PIDController
+/// @param kp The proportional gain
+/// @param ki The integral gain
+/// @param kd The derivative gain
+/// @param min The minimum control signal value to be outputted
+/// @param max The maximum control signal value to be outputted
 PIDController::PIDController(double kp, double ki, double kd, double min, double max) :
     _kp(kp),
     _ki(ki),
@@ -18,11 +24,17 @@ PIDController::~PIDController()
 {
 }
 
-void PIDController::setSetPoint(double setPoint)
+/// @brief Sets the set point of the controller.
+/// @param set_point The desired of the measured variable
+void PIDController::setSetPoint(double set_point)
 {
-    this->_setPoint = setPoint;
+    this->_setPoint = set_point;
 }
 
+/// @brief Updates the controller with a new measurement, generating a new control signal.
+/// @param measurement The new measurement of the controlled variable
+/// @param measurement_millis The time at which the measurement was taken in milliseconds
+/// @return The new control signal
 double PIDController::update(double measurement, unsigned long measurement_millis)
 {
     if (this->_firstTime) {
@@ -49,6 +61,7 @@ double PIDController::update(double measurement, unsigned long measurement_milli
     return signal;
 }
 
+/// @brief Resets the controller, clearing the integral and derivative terms.
 void PIDController::reset()
 {
     this->_integral = 0;

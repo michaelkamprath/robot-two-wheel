@@ -21,6 +21,10 @@ void Driver::loop() {
         PointSequence path;
         path.add(Point(0, 0));
         path.add(Point(0, 1500));
+        path.add(Point(-250, 1500));
+        path.add(Point(-250, 1000));
+        path.add(Point(0, 1000));
+        path.add(Point(0, 0));
         trace_path(path);
         _robot.statusLEDBlinkSlow();
         INFO_LOG(F("Driver::loop: driving done"));
