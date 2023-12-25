@@ -241,8 +241,8 @@ const int NUM_DATA_COLUMNS = 7;
             lastCheckinMillis = currentMillis;
             sprintf_P(
                 DataLogger::commonBuffer(),
-                PSTR("Robot::turn: heading error = %f"),
-                heading_error
+                PSTR("Robot::turn: heading error = %s"),
+                String(heading_error).c_str()
             );
             DEBUG_LOG(DataLogger::commonBuffer());
 

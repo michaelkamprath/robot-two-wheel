@@ -3,9 +3,9 @@
 
 const Point PointSequence::_empty_point = Point(0, 0);
 
-PointSequence::PointSequence(uint16_t initial_capacity) 
+PointSequence::PointSequence(uint16_t initial_capacity)
     :   _capacity(initial_capacity),
-        _size(0) 
+        _size(0)
 {
     _points = new Point[_capacity];
 }
